@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ece4-recipe"
+version = "0.1.0"
+authors = [
+  { name="Vladimir Lapin", email="vladimir.lapin@bsc.es" },
+]
+description = "EC-Earth4 YAML Configuration Tools"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "ruamel.yaml",
+    "jsonschema",
+]
+
+[project.optional-dependencies]
+highlight = ["pygments"]
+
+[project.urls]
+"Homepage" = "https://github.com/your-username/ece4-recipe"
+"Bug Tracker" = "https://github.com/your-username/ece4-recipe/issues"

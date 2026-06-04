@@ -1,0 +1,14 @@
+- base.context:
+    experiment:
+      monitoring:
+        activate: true
+      ecmean:
+        activate: true
+        frequency: 1
+    model_config:
+      components: [oifs, xios, amipfr, oasis]
+      oifs:
+        grid: TL255L91
+        precision: DP
+      oasis:
+        load_balancing: 1

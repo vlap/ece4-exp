@@ -1,0 +1,10 @@
+- base.context:
+    experiment:
+      monitoring:
+        activate: true
+    model_config:
+      components: [xios, nemo]
+      nemo:
+        grid: eORCA1L75_ISO
+        pisces: true
+        inerttrc: ['age']

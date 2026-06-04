@@ -1,0 +1,5 @@
+PLATFORMS:
+  ECMWF-HPC2020:
+    PROJECT: spesiccf
+    SCRATCH_DIR: /ec/res4/scratch/c3YY
+    USER: c3YY

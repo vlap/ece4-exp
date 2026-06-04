@@ -1,0 +1,40 @@
+# HPC2020 Cores: wiki page is not available
+- base.context:
+    ppn: 128  # 128 cores per node
+    experiment:
+      ini_dir: "/hpcperm/c3et/models/ecearth/%EXPERIMENT.CONFIGURATION.INI_VERSION%/inidata"
+    slurm-wrapper-taskset:
+      oifs:
+        omp_num_threads: 4
+        omp_stacksize: "64M"
+
+      AMIP-SR:
+        groups:
+          - {nodes: 1, amipfr: 1, xios: 1, oifs: 31 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 31, xios: 1}
+
+      OMIP-SR:
+        groups:
+          - { nodes: "{{ nodes }}", xios: 1, nemo: 127 }
+
+      CPLD-SR:
+        groups:
+          - { nodes: 1,                 oifs: 24, nemo: 30, xios: 1, rnfm: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 24, nemo: 31, xios: 1 }
+
+      CCCL-SR:
+        groups:
+          - { nodes: 1,                 oifs: 24, nemo: 30, rnfm: 1, lpjg: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 24, nemo: 30, xios: 1, lpjg: 1 }
+
+    slurm-wrapper-hostfile:
+      CUSTOM:
+          oifs:
+            ntasks: "%EXPERIMENT.CONFIGURATION.OIFS.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.OIFS.PROC_PER_NODE%"
+          nemo:
+            ntasks: "%EXPERIMENT.CONFIGURATION.NEMO.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.NEMO.PROC_PER_NODE%"
+          xios:
+            ntasks: "%EXPERIMENT.CONFIGURATION.XIOS.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.XIOS.PROC_PER_NODE%"

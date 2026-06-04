@@ -1,0 +1,26 @@
+- base.context:
+    scratch: "%CURRENT_ROOTDIR%"
+    experiment:
+      id: "%DEFAULT.EXPID%"
+      description: "%DEFAULT.DESCRIPTION% | %DEFAULT.EXPID% | %DEFAULT.HPCARCH% | %GIT.SOURCES_BRANCH%"
+
+      schedule:
+        all: "DO NOT CHANGE THIS! HANDLED BY AUTO-ECE4"
+        nlegs: 1
+      run_from_scratch: false
+
+    model_config:
+      nemo:
+        output:
+          meshmask: "{{ '%JOBS.ANDERSON_ACCELERATION.PROCESSORS%' }}"
+
+    job:
+      resubmit: false
+
+      slurm:
+        sbatch:
+          opts:
+            time: "%CURRENT_WALLCLOCK%:00"
+            qos: "%CURRENT_QUEUE%"
+            account: "%CURRENT_PROJECT%"
+

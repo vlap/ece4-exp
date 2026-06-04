@@ -1,0 +1,19 @@
+- base.context:
+    experiment:
+      monitoring:
+        activate: true
+      ecmean:
+        activate: true
+        frequency: 1
+    model_config:
+      components: [oifs, xios, nemo, rnfm, oasis, lpjg]
+      oifs:
+        grid: TL255L91
+        precision: DP
+        co2:
+          debug: true
+          tracer: true         # Activate CO2 tracer
+          cpl_pisces: true    # Couple with NEMO (PISCES), oifs --> pisces co2 ppm, pisces --> oifs co2 fluxes
+#        no_soil_albedo: true
+      oasis:
+        load_balancing: 1

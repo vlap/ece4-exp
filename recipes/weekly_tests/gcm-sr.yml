@@ -1,0 +1,16 @@
+- base.context:
+    experiment:
+      monitoring:
+        activate: true
+      ecmean:
+        activate: true
+        frequency: 1
+    model_config:
+      components: [oifs, xios, nemo, rnfm, oasis]
+      oifs:
+        grid: TL255L91
+        precision: DP
+      oasis:
+        load_balancing: 1
+      nemo:
+        grid: eORCA1L75_ISO

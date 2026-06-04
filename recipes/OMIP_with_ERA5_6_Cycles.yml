@@ -1,0 +1,35 @@
+- base.context:
+    experiment:
+      forcing:
+        nemo:
+          ssr:
+            # Surface restoring will be activated when `data` is not empty
+            data: s5_corrected_for_GCB_6_Cycles_From_1959_To_2023
+            sstr_coeff: 0
+            sssr_coeff: -166.67
+            climatology: false # false for inter-annual data (default), true to use a climatology
+            conventions:
+              dir:  !noparse "{{experiment.repo_dir}}/surface_restoring/ocean"
+              tracers:
+                - { name: sst, file: sst_restore_data, var: thetao, clim: false }
+                - { name: sss, file: sss_restore_data, var: so,     clim: false }
+              memb:  "fc00"                               # temporary member placeholder, e.g. fc00, fc01, etc.
+              namelist_name: "default" # See scripts/runtime/templates/nemo/nemo-ssr_{{namelist_name}}.namelist.j2
+
+        nemo_only:
+          atmospheric: !noparse "{{model_config.nemo.all_forcings.ERA5_for_GCB_6_Cycles_From_1959_To_2023}}"
+          fixed_year: false  # true for a climatology, false for yearly varying or integer year for fixed-year forcing (e.g. 2000)
+    model_config:
+      nemo:
+        all_forcings:
+          ERA5_for_GCB_6_Cycles_From_1959_To_2023:
+            name: "ERA5_HRES"
+            vars: [u10,v10,t10,qsw,qlw,q10,precip,snow,slp]
+            vstamp: "_fc00_ERA5_for_GCB_6_Cycles_From_1959_To_2023_"
+            vdir: !noparse_jinja "{{experiment.repo_dir}}/fg/ocean/ERA5_for_GCB_6_Cycles_From_1959_To_2023"
+            wdir: !noparse_jinja "{{experiment.repo_dir}}/fg/weights/ERA5"
+            weights:
+              - !noparse_jinja weights_bicubic_ERA5-n320_{{ model_config.nemo.grid.hres }}
+              - !noparse_jinja weights_bilinear_ERA5-n320_{{ model_config.nemo.grid.hres }}
+            
+

@@ -1,0 +1,55 @@
+# MN5 Cores: https://gitlab.earth.bsc.es/es/auto-ecearth4/-/wikis/mn5_cores
+- base.context:
+    ppn: 112  # 112 cores per node
+    experiment:
+      ini_dir: "/gpfs/projects/bsc32/models/ecearth/%EXPERIMENT.CONFIGURATION.INI_VERSION%/inidata"
+    slurm-wrapper-taskset:
+      oifs:
+        omp_num_threads: 4
+        omp_stacksize: "64M"
+
+      AMIP-SR:
+        groups:
+          - { nodes: 1,      amipfr: 1, oifs: 27, xios: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 27, xios: 1 }
+
+      OMIP-SR:
+        groups:
+          - { nodes: "{{ nodes }}", xios: 1, nemo: 111 }
+
+      CPLD-SR:
+        groups:
+          - { nodes: 1,                 oifs: 25, nemo: 9, xios: 1, rnfm: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 25, nemo: 10, xios: 1 }
+
+      CCCL-SR:
+        groups:
+          - { nodes: 1,                 oifs: 21, nemo: 26, rnfm: 1, lpjg: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 21, nemo: 26, xios: 1, lpjg: 1 }
+
+      CCCL-SR_slow:
+        groups:
+          - { nodes: 1,                 oifs: 18, nemo: 38, rnfm: 1, lpjg: 1 }
+          - { nodes: "{{ nodes - 1 }}", oifs: 18, nemo: 38, xios: 1, lpjg: 1 }
+
+      AMIP-HR:
+          oifs:
+            omp_num_threads: 8
+            omp_stacksize: "64M"
+          xios:
+            omp_num_threads: 8
+          groups:
+            - { nodes: "{{ nodes - 1 }}", oifs: 14 } #, oifs: 13, xios: 1 }
+            - { nodes: 1, xios: 2, amipfr: 1 } 
+
+    slurm-wrapper-hostfile:
+      CUSTOM:
+          oifs:
+            ntasks: "%EXPERIMENT.CONFIGURATION.OIFS.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.OIFS.PROC_PER_NODE%"
+          nemo:
+            ntasks: "%EXPERIMENT.CONFIGURATION.NEMO.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.NEMO.PROC_PER_NODE%"
+          xios:
+            ntasks: "%EXPERIMENT.CONFIGURATION.XIOS.NPROC%"
+            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.XIOS.PROC_PER_NODE%"

@@ -1,0 +1,11 @@
+- base.context:
+    build:
+      jobs: %JOBS.REMOTE_SETUP.PROCESSORS%
+      clean: %COMPILATION.CLEAN%
+      rebuild_nemo: %ECE4.EXPERIMENT.SAVEIC.ACTIVATE%
+      oifs_exe: "{{ '%ECE4.MODEL_CONFIG.OIFS.PRECISION%' or 'DP'}}-GCM"
+      components: %ECE4.MODEL_CONFIG.COMPONENTS%
+      top_active: "{{ true if (%ECE4.MODEL_CONFIG.NEMO.PISCES% or %ECE4.MODEL_CONFIG.NEMO.INERTTRC%) else false }}"
+      # isf_active: "{{ '%ECE4.MODEL_CONFIG.NEMO.GRID%'.endswith('_ISO') }}"
+      isf_active: true    # Make option to open ice shelves available. Defaults to `False`.
+      trd_active: 

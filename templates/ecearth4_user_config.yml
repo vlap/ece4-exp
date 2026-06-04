@@ -1,0 +1,11 @@
+EXPERIMENT:
+  # Mandatory AS variable. Does nothing
+  CALENDAR: standard
+COMPILATION:
+  CLEAN: True
+SCRIPTENGINE:
+  OPTIONS: "--loglevel debug"
+  SE_ENV_VERSION: "" # If SE_ENV_VERSION is not defined, it is derived from PLATFORM_COMPILERS and ECE4 branch version
+REDMINE:
+  API_KEY: xxxxxxxxxxxxxxx
+  GITLAB_KEY: yyyyyyyyyyyyyyyyyy
