@@ -2,7 +2,8 @@
 # Quick interactive demo of ece4-exp commands
 # Shows the main workflow and commands
 
-set -e
+# Note: Don't use set -e because some commands show expected errors
+set +e
 
 # Colors
 CYAN='\033[0;36m'
@@ -25,12 +26,15 @@ echo ""
 read -p "Press Enter to continue..."
 echo ""
 
-# Step 2: Show info command
+# Step 2: Show info command (may show errors if not configured)
 echo -e "${CYAN}⚙️  Step 2: Check current configuration${NC}"
 echo "----------------------------------------"
 echo "$ ./ece4-exp info"
 echo ""
-./ece4-exp info
+echo -e "${YELLOW}Note: This shows your current defaults from ~/.config/ece4-exp/defaults.yml${NC}"
+echo -e "${YELLOW}      If not configured yet, you'll see what's missing${NC}"
+echo ""
+./ece4-exp info 2>&1 || echo -e "${YELLOW}(No user config yet - that's OK! The generate command will use provided flags)${NC}"
 echo ""
 read -p "Press Enter to continue..."
 echo ""
@@ -40,9 +44,12 @@ echo -e "${CYAN}🚀 Step 3: Generate a GCM experiment (10 nodes, 1120 cores)${N
 echo "----------------------------------------"
 echo "$ ./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid demo-gcm -o demo-gcm.yml"
 echo ""
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid demo-gcm -o demo-gcm.yml
-echo ""
-echo -e "${GREEN}✓ Created demo-gcm.yml${NC}"
+if ./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid demo-gcm -o demo-gcm.yml; then
+    echo -e "${GREEN}✓ Created demo-gcm.yml${NC}"
+else
+    echo -e "${YELLOW}✗ Generation failed - check error above${NC}"
+    exit 1
+fi
 echo ""
 read -p "Press Enter to continue..."
 echo ""
@@ -93,12 +100,15 @@ echo -e "${CYAN}🌊 Step 7: Generate ocean-only experiment (2 nodes, 224 cores)
 echo "----------------------------------------"
 echo "$ ./ece4-exp generate --recipe omip-sr.yml --sim-procs 224 --expid demo-omip -o demo-omip.yml"
 echo ""
-./ece4-exp generate --recipe omip-sr.yml --sim-procs 224 --expid demo-omip -o demo-omip.yml 2>&1 | tail -8
-echo ""
-echo "Components (note: no OIFS - ocean only!):"
-grep "components:" demo-omip.yml
-echo ""
-echo -e "${GREEN}✓ Created demo-omip.yml${NC}"
+if ./ece4-exp generate --recipe omip-sr.yml --sim-procs 224 --expid demo-omip -o demo-omip.yml 2>&1 | tail -8; then
+    echo ""
+    echo "Components (note: no OIFS - ocean only!):"
+    grep "components:" demo-omip.yml
+    echo ""
+    echo -e "${GREEN}✓ Created demo-omip.yml${NC}"
+else
+    echo -e "${YELLOW}✗ Generation failed${NC}"
+fi
 echo ""
 read -p "Press Enter to continue..."
 echo ""
@@ -123,7 +133,7 @@ echo -e "${CYAN}❓ Step 9: Get help on any command${NC}"
 echo "----------------------------------------"
 echo "$ ./ece4-exp --help"
 echo ""
-./ece4-exp --help | head -20
+./ece4-exp --help | head -25
 echo "..."
 echo ""
 
