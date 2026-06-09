@@ -98,7 +98,7 @@ fi
 # 4. Install bash completion (optional)
 echo ""
 if command -v bash &> /dev/null && [[ -t 0 ]]; then
-    log_prompt "Install bash completion? [Y/n]"
+    log_prompt "Install bash completion and add to ~/.bashrc? [Y/n]"
     read -p "" install_completion
     install_completion=${install_completion:-Y}
 
@@ -107,7 +107,25 @@ if command -v bash &> /dev/null && [[ -t 0 ]]; then
         mkdir -p "$completion_dest"
         cp scripts/ece4-exp-completion.sh "$completion_dest/ece4-exp"
         log_info "Bash completion installed to $completion_dest/ece4-exp"
-        log_warn "Restart your shell or run: source $completion_dest/ece4-exp"
+
+        # Add to ~/.bashrc if not already there
+        bashrc="$HOME/.bashrc"
+        completion_source="source $completion_dest/ece4-exp"
+
+        if [ -f "$bashrc" ]; then
+            if ! grep -qF "$completion_source" "$bashrc"; then
+                echo "" >> "$bashrc"
+                echo "# ece4-exp bash completion" >> "$bashrc"
+                echo "$completion_source" >> "$bashrc"
+                log_info "Added completion source to ~/.bashrc"
+                log_warn "Restart your shell or run: source ~/.bashrc"
+            else
+                log_info "Completion already sourced in ~/.bashrc"
+            fi
+        else
+            log_warn "~/.bashrc not found. To enable completion, add to your shell config:"
+            echo "  $completion_source"
+        fi
     fi
 elif command -v bash &> /dev/null; then
     # Non-interactive

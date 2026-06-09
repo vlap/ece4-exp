@@ -102,6 +102,20 @@ function cmd_generate() {
     local jobs_file="${CONF_PATH}/jobs_${EXPID}.yml"
     local output_file="${EXPID}_experiment.yml"
 
+    # Check for --quiet flag to suppress colors
+    local quiet_mode=0
+    for arg in "$@"; do
+        if [[ "$arg" == "--quiet" ]]; then
+            quiet_mode=1
+            export COLOR_NC=''
+            export COLOR_GREEN=''
+            export COLOR_CYAN=''
+            export COLOR_YELLOW=''
+            export COLOR_RED=''
+            break
+        fi
+    done
+
     # If --output is provided in $@, it will override this one
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
     python3 -m ece4_exp.generate-experiment-config \
@@ -176,13 +190,13 @@ function usage() {
     echo ""
     echo "User-specific flags for 'generate':"
     echo "  --expid <id>         Experiment ID"
-    echo "  --scratch <path>     Scratch directory path"
     echo "  --account <name>     HPC account/project"
     echo "  --walltime <hours>   Walltime in hours (e.g. 48)"
     echo "  --description <txt>  Experiment description"
     echo ""
     echo "Output control:"
     echo "  --dry-run            Preview generated YAML without writing"
+    echo "  --quiet              Suppress colored output and prompts (for scripting)"
     echo "  -o, --output <file>  Output file name (default: experiment.yml)"
     echo ""
     echo "Note: Parameters are resolved from: CLI args > ~/.config/ece4-exp/defaults.yml > autosubmit files"

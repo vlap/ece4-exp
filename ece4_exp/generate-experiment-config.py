@@ -17,7 +17,7 @@ from copy import deepcopy
 from io import StringIO
 from .yaml_util import (
     load_yaml, load_yaml_config, load_platform_yaml, save_yaml_config, deep_merge,
-    get_yaml, log_info, log_warn, log_error, log_yaml, COLOR_CYAN, COLOR_NC
+    get_yaml, log_info, log_warn, log_error, log_yaml, COLOR_CYAN, COLOR_NC, set_quiet_mode
 )
 from . import paths
 
@@ -129,16 +129,13 @@ def clone_ece4_yml_repo(
         "commit": commit,
     }
 
-def build_cli_overrides(expid, scratch, account, walltime, description):
+def build_cli_overrides(expid, account, walltime, description):
     """Build configuration overrides from CLI parameters.
 
-    Note: scratch is NOT included - it should come from user's config file,
+    Note: scratch is not a parameter - it should come from user's config file,
     not be hardcoded in every experiment.
     """
     overrides = {}
-
-    # scratch is intentionally not added to experiment config
-    # It belongs in the user's config file (~/.config/ece4-exp/defaults.yml)
 
     if expid:
         if "experiment" not in overrides:
@@ -191,7 +188,7 @@ def select_launcher_fragment(launcher, launcher_kind, launchers_dict):
     return merged
 
 def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=None,
-                   expid=None, scratch=None, account=None, walltime=None, description=None,
+                   expid=None, account=None, walltime=None, description=None,
                    output="experiment.yml", dry_run=False):
     """Generate an experiment configuration by merging multiple configuration fragments.
 
@@ -268,7 +265,7 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
         apply_node_eval(launcher_fragment, nodes)
 
     # Build CLI overrides (NEW: explicit user parameters)
-    cli_overrides = build_cli_overrides(expid, scratch, account, walltime, description)
+    cli_overrides = build_cli_overrides(expid, account, walltime, description)
 
     # NOTE: We do NOT merge platform_config into the experiment config!
     # The platform file is loaded separately by the workflow as:
@@ -319,7 +316,6 @@ def main():
 
     # User-specific parameters (NEW)
     parser.add_argument("--expid", help="Experiment ID")
-    parser.add_argument("--scratch", help="Scratch directory path")
     parser.add_argument("--account", help="HPC account/project")
     parser.add_argument("--walltime", help="Walltime in hours (e.g. 48)")
     parser.add_argument("--description", help="Experiment description")
@@ -327,8 +323,13 @@ def main():
     # Output control
     parser.add_argument("-o", "--output", default="experiment.yml", help="Output YAML file name")
     parser.add_argument("--dry-run", action="store_true", help="Print YAML instead of writing to file")
+    parser.add_argument("--quiet", action="store_true", help="Suppress colored output and prompts (for scripting)")
     parser.add_argument("--info", action="store_true", help="Only print extracted settings and exit")
     args = parser.parse_args()
+
+    # Enable quiet mode if --quiet flag is set
+    if args.quiet:
+        set_quiet_mode(True)
 
     # Load user defaults from ~/.config/ece4-recipe/defaults.yml
     user_defaults = load_user_defaults()
@@ -353,7 +354,6 @@ def main():
 
     # User-specific parameters (NEW)
     expid = args.expid or user_defaults.get("expid")
-    scratch = args.scratch or user_defaults.get("scratch")
     account = args.account or user_defaults.get("account")
     walltime = args.walltime or user_defaults.get("walltime")
     description = args.description or user_defaults.get("description")
@@ -378,23 +378,26 @@ def main():
         log_info("  3. Autosubmit files: --expdef, --jobs (if using autosubmit)")
         sys.exit(1)
 
-    print(f"{COLOR_CYAN}============================================================{COLOR_NC}")
+    from .yaml_util import _get_color
+    cyan = _get_color(COLOR_CYAN)
+    nc = _get_color(COLOR_NC)
+
+    print(f"{cyan}============================================================{nc}")
     print(f" Experiment Configuration Settings")
     print(f"------------------------------------------------------------")
-    print(f" ECE4 repo owner     : \"{COLOR_CYAN}{repo_owner}{COLOR_NC}\"")
-    print(f" ECE4 repo branch    : \"{COLOR_CYAN}{repo_branch}{COLOR_NC}\"")
-    print(f" Platform            : \"{COLOR_CYAN}{hpcarch}{COLOR_NC}\"")
+    print(f" ECE4 repo owner     : \"{cyan}{repo_owner}{nc}\"")
+    print(f" ECE4 repo branch    : \"{cyan}{repo_branch}{nc}\"")
+    print(f" Platform            : \"{cyan}{hpcarch}{nc}\"")
     print(f"------------------------------------------------------------")
-    print(f" Experiment ID       : {COLOR_CYAN}{expid or '(not set)'}{COLOR_NC}")
-    print(f" Scratch dir         : {COLOR_CYAN}{scratch or '(not set)'}{COLOR_NC}")
-    print(f" Account             : {COLOR_CYAN}{account or '(not set)'}{COLOR_NC}")
-    print(f" Walltime (hours)    : {COLOR_CYAN}{walltime or '(not set)'}{COLOR_NC}")
+    print(f" Experiment ID       : {cyan}{expid or '(not set)'}{nc}")
+    print(f" Account             : {cyan}{account or '(not set)'}{nc}")
+    print(f" Walltime (hours)    : {cyan}{walltime or '(not set)'}{nc}")
     print(f"------------------------------------------------------------")
-    print(f" Processors (SIM)    : {COLOR_CYAN}{sim_procs}{COLOR_NC}")
-    print(f" Launcher kind       : {COLOR_CYAN}{launcher_kind}{COLOR_NC}")
-    print(f" Launcher type       : {COLOR_CYAN}{launcher_type}{COLOR_NC}")
-    print(f" Recipe              : {COLOR_CYAN}{user_recipe or '(none)'}{COLOR_NC}")
-    print(f"{COLOR_CYAN}============================================================{COLOR_NC}")
+    print(f" Processors (SIM)    : {cyan}{sim_procs}{nc}")
+    print(f" Launcher kind       : {cyan}{launcher_kind}{nc}")
+    print(f" Launcher type       : {cyan}{launcher_type}{nc}")
+    print(f" Recipe              : {cyan}{user_recipe or '(none)'}{nc}")
+    print(f"{cyan}============================================================{nc}")
 
     if args.info:
         sys.exit(0)
@@ -422,7 +425,6 @@ def main():
         sim_procs=sim_procs,
         user_recipe=user_recipe,
         expid=expid,
-        scratch=scratch,
         account=account,
         walltime=walltime,
         description=description,
@@ -433,9 +435,13 @@ def main():
     if not args.dry_run:
         shutil.copyfile(args.output, os.path.join(paths.YML_TOOLS_DIR, args.output.replace(".yml", "_pristine.yml")))
 
-        log_info(f"GENERATED EXPERIMENT CONFIGURATION FILE: {COLOR_CYAN}{args.output}{COLOR_NC}")
+        from .yaml_util import _get_color
+        cyan = _get_color(COLOR_CYAN)
+        nc = _get_color(COLOR_NC)
+
+        log_info(f"GENERATED EXPERIMENT CONFIGURATION FILE: {cyan}{args.output}{nc}")
         log_warn("Review and make any necessary changes BEFORE running the experiment.")
-        log_info(f"For example, run: {COLOR_CYAN}meld {args.output} {paths.BASE_CONFIG_EXAMPLE}{COLOR_NC}")
+        log_info(f"For example, run: {cyan}meld {args.output} {paths.BASE_CONFIG_EXAMPLE}{nc}")
         print("\n")
 
 if __name__ == "__main__":

@@ -20,14 +20,26 @@ COLOR_CYAN = '\033[0;36m'
 COLOR_YELLOW = '\033[1;33m'
 COLOR_RED = '\033[0;31m'
 
+# Global flag for quiet mode
+_QUIET_MODE = False
+
+def set_quiet_mode(enabled=True):
+    """Enable or disable quiet mode (no colors)."""
+    global _QUIET_MODE
+    _QUIET_MODE = enabled
+
+def _get_color(color_code):
+    """Return color code if not in quiet mode, empty string otherwise."""
+    return '' if _QUIET_MODE else color_code
+
 def log_info(msg):
-    print(f"{COLOR_GREEN}==>{COLOR_NC} {msg}")
+    print(f"{_get_color(COLOR_GREEN)}==>{_get_color(COLOR_NC)} {msg}")
 
 def log_warn(msg):
-    print(f"{COLOR_YELLOW}WARN:{COLOR_NC} {msg}")
+    print(f"{_get_color(COLOR_YELLOW)}WARN:{_get_color(COLOR_NC)} {msg}")
 
 def log_error(msg):
-    print(f"{COLOR_RED}ERROR:{COLOR_NC} {msg}", file=sys.stderr)
+    print(f"{_get_color(COLOR_RED)}ERROR:{_get_color(COLOR_NC)} {msg}", file=sys.stderr)
 
 def log_yaml(data):
     """

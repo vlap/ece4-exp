@@ -11,6 +11,35 @@ from pathlib import Path
 from . import paths
 from .yaml_util import log_info, log_warn, log_error, COLOR_CYAN, COLOR_NC
 
+def validate_scratch_path(scratch_path):
+    """Validate scratch path and return warnings if any."""
+    warnings = []
+
+    if not scratch_path or scratch_path == "/gpfs/scratch/username":
+        warnings.append("Scratch path is still the default placeholder. Update it to your actual scratch directory.")
+    else:
+        # Check if path exists (only warn, don't fail)
+        path = Path(scratch_path)
+        if not path.exists():
+            warnings.append(f"Scratch path does not exist: {scratch_path}")
+        elif not path.is_dir():
+            warnings.append(f"Scratch path is not a directory: {scratch_path}")
+
+    return warnings
+
+def validate_account(account):
+    """Validate account name and return warnings if any."""
+    warnings = []
+
+    if not account:
+        warnings.append("Account is not set.")
+    elif account in ["bsc32", "your-project"]:
+        warnings.append("Account looks like a placeholder. Update it to your actual HPC account.")
+    elif len(account) < 3:
+        warnings.append(f"Account name seems too short: '{account}'. Verify it's correct.")
+
+    return warnings
+
 def init_user_config():
     """Create ~/.config/ece4-exp/ with example defaults."""
     config_dir = paths.USER_CONFIG_DIR
@@ -150,6 +179,29 @@ walltime: 48
         log_info("Edit this file to set your personal defaults, then run:")
         print(f"  {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid myexp{COLOR_NC}")
         print()
+
+        # Validate the default content we just wrote
+        log_info("Validating configuration...")
+        from .yaml_util import load_yaml
+        try:
+            config = load_yaml(str(defaults_file))
+
+            # Validate scratch path
+            scratch_warnings = validate_scratch_path(config.get("scratch"))
+            for warning in scratch_warnings:
+                log_warn(warning)
+
+            # Validate account
+            account_warnings = validate_account(config.get("account"))
+            for warning in account_warnings:
+                log_warn(warning)
+
+            if scratch_warnings or account_warnings:
+                print()
+                log_info(f"Please edit {COLOR_CYAN}{defaults_file}{COLOR_NC} and update the placeholder values.")
+        except Exception as e:
+            log_warn(f"Could not validate config: {e}")
+
     except Exception as e:
         log_error(f"Failed to create defaults file: {e}")
         sys.exit(1)
