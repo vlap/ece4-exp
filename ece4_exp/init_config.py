@@ -41,21 +41,44 @@ def validate_account(account):
     return warnings
 
 def init_user_config():
-    """Create ~/.config/ece4-exp/ with example defaults."""
+    """Create ~/.config/ece4-exp/ with example defaults.
+
+    This function creates a user configuration file that stores personal defaults
+    to avoid typing the same parameters repeatedly.
+    """
     config_dir = paths.USER_CONFIG_DIR
     defaults_file = paths.USER_DEFAULTS_FILE
+
+    print()
+    print("=" * 70)
+    print(" User Configuration Setup")
+    print("=" * 70)
+    print()
+    print(f"Creating configuration file: {COLOR_CYAN}{defaults_file}{COLOR_NC}")
+    print()
+    print("This file stores your personal defaults so you can generate")
+    print("experiments with minimal commands:")
+    print()
+    print(f"  {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120{COLOR_NC}")
+    print()
+    print("Instead of typing platform, account, etc. every time!")
+    print()
 
     # Create directory if it doesn't exist
     if not config_dir.exists():
         config_dir.mkdir(parents=True, exist_ok=True)
-        log_info(f"Created config directory: {config_dir}")
-    else:
-        log_info(f"Config directory already exists: {config_dir}")
+        log_info(f"Created directory: {config_dir}")
 
     # Create example defaults file if it doesn't exist
     if defaults_file.exists():
-        log_warn(f"Defaults file already exists: {defaults_file}")
-        log_info("To reconfigure, edit the file or delete it and run init again.")
+        print()
+        log_warn(f"Configuration file already exists: {defaults_file}")
+        print()
+        print("Options:")
+        print(f"  • View current config: {COLOR_CYAN}cat {defaults_file}{COLOR_NC}")
+        print(f"  • Edit config: {COLOR_CYAN}nano {defaults_file}{COLOR_NC}")
+        print(f"  • Reset config: {COLOR_CYAN}rm {defaults_file} && ./ece4-exp init-user{COLOR_NC}")
+        print()
         return
 
     # Create example defaults with comments
@@ -174,14 +197,45 @@ walltime: 48
 
     try:
         defaults_file.write_text(example_content)
-        log_info(f"Created example defaults file: {COLOR_CYAN}{defaults_file}{COLOR_NC}")
         print()
-        log_info("Edit this file to set your personal defaults, then run:")
-        print(f"  {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid myexp{COLOR_NC}")
+        log_info(f"✓ Configuration file created: {COLOR_CYAN}{defaults_file}{COLOR_NC}")
+        print()
+        print("=" * 70)
+        print(" What's in the configuration file?")
+        print("=" * 70)
+        print()
+        print("Platform settings:")
+        print("  • platform: Your HPC (bsc-marenostrum5, ecmwf-hpc2020, etc.)")
+        print("  • account: Your project/account name")
+        print("  • repo_owner, repo_branch: Which EC-Earth4 version to use")
+        print()
+        print("Optional defaults:")
+        print("  • walltime: Default job walltime in hours")
+        print("  • recipe: Skip --recipe flag if you always use the same one")
+        print("  • sim_procs: Skip --sim-procs flag for standard configs")
+        print()
+        print("=" * 70)
+        print(" How defaults are used")
+        print("=" * 70)
+        print()
+        print("Priority (later overrides earlier):")
+        print(f"  1. Defaults file ({COLOR_CYAN}~/.config/ece4-exp/defaults.yml{COLOR_NC})")
+        print(f"  2. CLI flags (e.g., {COLOR_CYAN}--platform ecmwf-hpc2020{COLOR_NC})")
+        print()
+        print("Example:")
+        print(f"  Config has: {COLOR_CYAN}platform: bsc-marenostrum5{COLOR_NC}")
+        print(f"  Command: {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120{COLOR_NC}")
+        print(f"  → Uses platform from config (bsc-marenostrum5)")
+        print()
+        print(f"  Command: {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --platform ecmwf-hpc2020{COLOR_NC}")
+        print(f"  → Overrides with CLI flag (ecmwf-hpc2020)")
         print()
 
         # Validate the default content we just wrote
-        log_info("Validating configuration...")
+        print("=" * 70)
+        print(" Checking placeholder values")
+        print("=" * 70)
+        print()
         from .yaml_util import load_yaml
         try:
             config = load_yaml(str(defaults_file))
@@ -198,9 +252,18 @@ walltime: 48
 
             if scratch_warnings or account_warnings:
                 print()
-                log_info(f"Please edit {COLOR_CYAN}{defaults_file}{COLOR_NC} and update the placeholder values.")
+                log_info(f"Next step: Edit the configuration file")
+                print(f"  {COLOR_CYAN}nano {defaults_file}{COLOR_NC}")
+                print()
+                log_info("Or use interactive setup:")
+                print(f"  {COLOR_CYAN}./setup.sh --interactive{COLOR_NC}")
+            else:
+                log_info("Configuration looks good! You can now generate experiments.")
+                print(f"  {COLOR_CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid test{COLOR_NC}")
         except Exception as e:
             log_warn(f"Could not validate config: {e}")
+
+        print()
 
     except Exception as e:
         log_error(f"Failed to create defaults file: {e}")

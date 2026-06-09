@@ -3,27 +3,30 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ece4-recipe"
-version = "0.1.0"
+name = "ece4-exp"
+version = "1.0.0"
 authors = [
   { name="Vladimir Lapin", email="vladimir.lapin@bsc.es" },
 ]
-description = "EC-Earth4 YAML Configuration Tools"
+description = "EC-Earth4 experiment configuration tool with YAML overlay system"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-    "ruamel.yaml",
-    "jsonschema",
+    "ruamel.yaml>=0.17.0",
+    "jsonschema>=4.0.0",
 ]
 
 [project.optional-dependencies]
-highlight = ["pygments"]
+highlight = ["pygments>=2.10.0"]
 
 [project.urls]
-"Homepage" = "https://github.com/your-username/ece4-recipe"
-"Bug Tracker" = "https://github.com/your-username/ece4-recipe/issues"
+"Homepage" = "https://github.com/vlap/ece4-exp"
+"Bug Tracker" = "https://github.com/vlap/ece4-exp/issues"
+"Documentation" = "https://github.com/vlap/ece4-exp/blob/main/README.md"

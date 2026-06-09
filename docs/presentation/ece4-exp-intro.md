@@ -47,6 +47,10 @@ style: |
   p {
     margin: 12px 0;
   }
+  table {
+    font-size: 22px;
+    margin: 15px 0;
+  }
 ---
 
 <!-- _class: lead -->
@@ -63,11 +67,11 @@ style: |
 
 **Creating an EC-Earth4 experiment config is painful:**
 
-- Edit 257-line YAML file manually
-- Match components, grids, and processor counts
-- Calculate node layouts and resource distribution
-- Set platform paths, SLURM settings, forcing...
-- Easy to make mistakes (typos, incompatible combinations)
+- 📝 Edit 257-line YAML file manually
+- 🧮 Calculate node layouts and processor distribution
+- 🔧 Match components, grids, platform paths
+- ⚠️ Easy to make mistakes (typos, incompatible combinations)
+- ⏱️ Repeat for every experiment
 
 **Result:** 2-4 hours for experienced users, longer for newcomers
 
@@ -85,63 +89,148 @@ style: |
 ```
 
 **That's it.** You get:
-- Correct component configuration
-- Calculated node layout (10 nodes)
-- Validated and ready to run
+- ✅ Correct component configuration (OIFS + NEMO + XIOS + OASIS)
+- ✅ Calculated node layout (10 nodes, 112 procs/node)
+- ✅ Platform paths from upstream EC-Earth4 repo
+- ✅ Validated and ready to run
+
+**Time saved:** ~3.5 hours per experiment
 
 ---
 
-# What You Get
+# Pre-Built Recipes
 
-**Pre-tested recipes for common experiments:**
-- `gcm-sr.yml` - Coupled atmosphere-ocean
-- `omip-sr.yml` - Ocean-only with ERA5 forcing
-- `amip-sr.yml` - Atmosphere-only
-- `ccycle-sr.yml` - With carbon cycle (LPJG)
+**Ready-to-use experiment templates:**
+
+| Recipe | Description | Procs | Nodes* |
+|--------|-------------|-------|--------|
+| `gcm-sr.yml` | Coupled atmosphere-ocean | 1120 | 10 |
+| `omip-sr.yml` | Ocean-only with ERA5 forcing | 224 | 2 |
+| `amip-sr.yml` | Atmosphere-only (prescribed SST) | 896 | 8 |
+| `ccycle-sr.yml` | Carbon cycle (with LPJG) | 1120+ | 10+ |
+
+<sub>*MareNostrum5 (112 cores/node)</sub>
+
+**All recipes:** Tested, validated, production-ready
+
+---
+
+# How It Works
+
+**YAML overlay system** - configurations merged in order:
+
+```
+Base config (EC-Earth4 repo)
+  ↓
++ Platform launcher (local file)
+  ↓
++ Recipe (experiment pattern)
+  ↓
++ Your CLI parameters
+  ↓
+= Generated config (229 lines)
+```
 
 **Smart features:**
+- Auto-fetches latest base config from EC-Earth4 repo
 - Auto-calculates processor distribution
-- Fetches platform configs from EC-Earth4 repo
 - Validates before you submit
-- Works on BSC, ECMWF (to add a platform just a file with launcher templates is needed)
 
 ---
 
-# Real Example: GCM vs OMIP
+# Real Examples
 
 **Coupled atmosphere-ocean (10 nodes):**
 ```bash
 ./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120
-# OIFS + NEMO + XIOS + OASIS + RNFM
+# → OIFS + NEMO + XIOS + OASIS + RNFM
+# → TL255L91 + eORCA1L75
 ```
 
 **Ocean-only (2 nodes):**
 ```bash
 ./ece4-exp generate --recipe omip-sr.yml --sim-procs 224
-# NEMO + XIOS (no atmosphere)
+# → NEMO + XIOS (no atmosphere)
+# → Forced by ERA5
 ```
 
-Different science, different resources - same simple command.
+Different science, different resources - **same simple command**.
 
 ---
 
-# Setup Once, Use Forever
+# Setup: Once and Forever
 
-**One-time setup:**
+**One-time installation (2 minutes):**
 ```bash
 git clone https://github.com/vlap/ece4-exp.git
 cd ece4-exp
 ./setup.sh
-./ece4-exp init-user
 ```
+
+**Configure your defaults (1 minute):**
+```bash
+./ece4-exp init-user
+# Edit ~/.config/ece4-exp/defaults.yml
+```
+
+Set your platform, account, scratch path **once**.
 
 **Then just:**
 ```bash
 ./ece4-exp generate --recipe <type> --sim-procs <n>
 ```
 
-Your platform, account, scratch are remembered.
 Override when needed: `--platform ecmwf-hpc2020`
+
+---
+
+# Advanced Features
+
+**Create custom recipes:**
+```bash
+# Modify generated config
+vim myexp.yml
+
+# Save as new recipe
+./ece4-exp save --expid myexp -o my-recipe.yml
+
+# Reuse it
+./ece4-exp generate --recipe my-recipe.yml --sim-procs 1120
+```
+
+**Scripting support:**
+```bash
+# Quiet mode (no colors, for scripts)
+./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --quiet
+
+# Batch generation
+for exp in {001..010}; do
+  ./ece4-exp generate --recipe gcm-sr.yml --expid exp$exp
+done
+```
+
+---
+
+# Platform Support
+
+**Currently supported:**
+- 🇪🇸 BSC MareNostrum 5
+- 🇮🇹 ECMWF HPC2020
+
+**Adding a new platform:**
+1. Create `platforms/<platform>.yml` with launcher templates
+2. Specify `ppn` (processors per node)
+3. Done!
+
+**Example:**
+```yaml
+ppn: 128  # Processors per node
+slurm-wrapper-taskset:
+  oifs:
+    script: "srun --cpus-per-task=1 ..."
+```
+
+Small file (~50 lines), platform ready to use.
 
 ---
 
@@ -152,14 +241,17 @@ Override when needed: `--platform ecmwf-hpc2020`
 ```bash
 git clone https://github.com/vlap/ece4-exp.git
 cd ece4-exp
-./QUICK_DEMO.sh
+./QUICK_DEMO.sh  # Interactive 3-minute demo
 ```
 
 **Documentation:**
 - `README.md` - Complete guide
-- `DEMO.md` - Full walkthrough with examples
+- `DEMO.md` - Walkthrough with examples
 - `./ece4-exp --help` - Command reference
 
-**Compatible with:** auto-ecearth4 (Autosubmit) and manual workflows
+**Compatible with:**
+- ✅ Manual EC-Earth4 workflows (ScriptEngine)
+- ✅ Autosubmit (auto-ecearth4) - backward compatible
 
-**Questions?** vladimir.lapin@bsc.es
+**Questions?** vladimir.lapin@bsc.es  
+**Code:** https://github.com/vlap/ece4-exp

@@ -42,57 +42,112 @@ fi
 
 # 3. Initialize user config
 echo ""
-log_info "Setting up user configuration..."
+echo "========================================="
+echo "  User Configuration"
+echo "========================================="
+echo ""
+echo "ece4-exp stores your personal defaults (platform, account, etc.)"
+echo "so you don't have to type them with every command."
+echo ""
+echo "These will be saved to: ${CYAN}~/.config/ece4-exp/defaults.yml${NC}"
+echo ""
+echo "How it works:"
+echo "  • Set once: platform, account, walltime, etc."
+echo "  • Generate experiments with just: --recipe <name> --sim-procs <n>"
+echo "  • Override anytime with CLI flags (e.g., --platform ecmwf-hpc2020)"
+echo ""
 
 INTERACTIVE="false"
 if [[ "${1:-}" == "--interactive" ]]; then
     INTERACTIVE="true"
 fi
 
+# Ask user if they want to configure now or later
 if [[ "$INTERACTIVE" == "true" ]]; then
-    # Interactive setup
-    log_prompt "Let's configure your defaults..."
-    echo ""
+    log_prompt "Would you like to configure your defaults now? [Y/n]"
+    read -p "" configure_now
+    configure_now=${configure_now:-Y}
 
-    # Platform
-    log_prompt "Which HPC platform do you use?"
-    echo "  1) bsc-marenostrum5 (BSC)"
-    echo "  2) ecmwf-hpc2020 (ECMWF)"
-    echo "  3) csc-mahti (CSC Finland)"
-    echo "  4) other (manual setup)"
-    read -p "Choice [1]: " platform_choice
-    platform_choice=${platform_choice:-1}
+    if [[ "$configure_now" =~ ^[Nn]$ ]]; then
+        log_info "Skipping configuration. You can configure later with: ./ece4-exp init-user"
+    else
+        # Interactive setup
+        echo ""
+        log_prompt "Let's configure your defaults..."
+        echo ""
 
-    case $platform_choice in
-        1) platform="bsc-marenostrum5" ;;
-        2) platform="ecmwf-hpc2020" ;;
-        3) platform="csc-mahti" ;;
-        *) platform="bsc-marenostrum5" ;;
-    esac
+        # Platform
+        log_prompt "Which HPC platform do you use?"
+        echo "  1) bsc-marenostrum5 (BSC)"
+        echo "  2) ecmwf-hpc2020 (ECMWF)"
+        echo "  3) csc-mahti (CSC Finland)"
+        echo "  4) Skip (configure manually later)"
+        read -p "Choice [1]: " platform_choice
+        platform_choice=${platform_choice:-1}
 
-    # Account
-    read -p "Your HPC account/project: " account
-    account=${account:-"your-project"}
+        case $platform_choice in
+            1) platform="bsc-marenostrum5" ;;
+            2) platform="ecmwf-hpc2020" ;;
+            3) platform="csc-mahti" ;;
+            4) platform="SKIP" ;;
+            *) platform="bsc-marenostrum5" ;;
+        esac
 
-    # Scratch
-    read -p "Your scratch directory (e.g., /gpfs/scratch/username): " scratch
-    scratch=${scratch:-"/gpfs/scratch/username"}
+        if [[ "$platform" != "SKIP" ]]; then
+            # Account
+            echo ""
+            log_prompt "Your HPC account/project (e.g., bsc32, spesimon):"
+            read -p "" account
+            account=${account:-"your-project"}
 
-    # Create config
-    ./ece4-exp init-user
+            # Scratch
+            echo ""
+            log_prompt "Your scratch directory:"
+            echo "  BSC example: /gpfs/scratch/bsc32/bsc32XXX"
+            echo "  ECMWF example: /scratch/ms/xx/xxxx"
+            read -p "Path: " scratch
+            scratch=${scratch:-"/gpfs/scratch/username"}
 
-    # Update with user values
-    config_file="$HOME/.config/ece4-exp/defaults.yml"
-    sed -i "s|account: bsc32|account: $account|g" "$config_file"
-    sed -i "s|/gpfs/scratch/username|$scratch|g" "$config_file"
-    sed -i "s|platform: bsc-marenostrum5|platform: $platform|g" "$config_file"
+            # Create config
+            ./ece4-exp init-user 2>&1 | grep -v "WARN"
 
-    log_info "Configuration saved to $config_file"
+            # Update with user values
+            config_file="$HOME/.config/ece4-exp/defaults.yml"
+            sed -i "s|account: bsc32|account: $account|g" "$config_file"
+            sed -i "s|/gpfs/scratch/username|$scratch|g" "$config_file"
+            sed -i "s|platform: bsc-marenostrum5|platform: $platform|g" "$config_file"
+
+            echo ""
+            log_info "Configuration saved to ${CYAN}$config_file${NC}"
+            echo ""
+            echo "Usage example:"
+            echo "  ${CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid myexp${NC}"
+            echo ""
+            echo "Your platform ($platform) and account ($account) are already set!"
+        else
+            ./ece4-exp init-user
+            config_file="$HOME/.config/ece4-exp/defaults.yml"
+            echo ""
+            log_warn "Configuration file created with defaults."
+            log_info "Edit ${CYAN}$config_file${NC} to set your platform, account, and scratch."
+        fi
+    fi
 else
     # Non-interactive setup
-    ./ece4-exp init-user
-    log_info "Created ~/.config/ece4-exp/defaults.yml"
-    log_warn "Edit this file to set your platform, account, and scratch directory"
+    echo "Creating default configuration file..."
+    echo ""
+    ./ece4-exp init-user 2>&1 | grep -v "WARN"
+    config_file="$HOME/.config/ece4-exp/defaults.yml"
+    echo ""
+    log_info "Configuration file created: ${CYAN}$config_file${NC}"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit the file to set your platform, account, and scratch:"
+    echo "     ${CYAN}nano $config_file${NC}"
+    echo ""
+    echo "  2. Then generate experiments with minimal commands:"
+    echo "     ${CYAN}./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120${NC}"
+    echo ""
 fi
 
 # 4. Install bash completion (optional)
