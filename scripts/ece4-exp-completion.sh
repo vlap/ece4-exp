@@ -1,4 +1,4 @@
-# Bash completion for ece4-recipe.sh
+# Bash completion for ece4-exp.sh
 
 _ece4_recipe_completion() {
     local cur prev opts
@@ -49,5 +49,5 @@ _ece4_recipe_completion() {
     esac
 }
 
-complete -F _ece4_recipe_completion ece4-recipe.sh
-complete -F _ece4_recipe_completion ./ece4-recipe.sh
+complete -F _ece4_recipe_completion ece4-exp.sh
+complete -F _ece4_recipe_completion ./ece4-exp.sh

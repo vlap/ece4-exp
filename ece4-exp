@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# ece4-recipe.sh - Tool for managing EC-Earth4 YAML configurations and recipes
+# ece4-exp.sh - Tool for managing EC-Earth4 YAML configurations and recipes
 
 set -euo pipefail
 
 # --- Path Configuration ---
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-YML_TOOLS_DIR="${PROJECT_ROOT}/ece4_recipe"
+YML_TOOLS_DIR="${PROJECT_ROOT}/ece4_exp"
 RECIPES_DIR="${PROJECT_ROOT}/recipes"
 
 # --- Colors & Logging ---
@@ -80,7 +80,7 @@ function cmd_info() {
     local jobs_file="${CONF_PATH}/jobs_${EXPID}.yml"
 
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
-    python3 -m ece4_recipe.generate-experiment-config \
+    python3 -m ece4_exp.generate-experiment-config \
       --expdef "$expdef_file" \
       --jobs "$jobs_file" \
       --info \
@@ -90,9 +90,9 @@ function cmd_info() {
 # --- Command: Init User ---
 function cmd_init_user() {
     check_python_deps
-    log_info "Initializing user configuration in ~/as4"
+    log_info "Initializing user configuration in ~/.config/ece4-exp"
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
-    python3 -m ece4_recipe.init-user-conf
+    python3 -m ece4_exp.init_config
 }
 
 # --- Command: Generate ---
@@ -104,7 +104,7 @@ function cmd_generate() {
 
     # If --output is provided in $@, it will override this one
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
-    python3 -m ece4_recipe.generate-experiment-config \
+    python3 -m ece4_exp.generate-experiment-config \
       --expdef "$expdef_file" \
       --jobs "$jobs_file" \
       --output "$output_file" \
@@ -122,7 +122,7 @@ function cmd_validate() {
     fi
 
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
-    python3 -m ece4_recipe.validate-experiment-config "$config_file"
+    python3 -m ece4_exp.validate-experiment-config "$config_file"
 }
 
 # --- Command: Save ---
@@ -147,7 +147,7 @@ function cmd_save() {
     log_info "Saving recipe: ${COLOR_CYAN}$output_file${COLOR_NC} (Expid: ${EXPID})"
     
     PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" \
-    python3 -m ece4_recipe.save_recipe_from_diff \
+    python3 -m ece4_exp.save_recipe_from_diff \
       --expdef "$expdef_file" \
       --output "$output_file" \
       --expid "$EXPID" \
@@ -157,31 +157,36 @@ function cmd_save() {
 function usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
-    echo "Environment Variables:"
-    echo "  EXPID       Experiment ID (default: guessed from path or 'unknown')"
-    echo "  CONF_PATH   Path to experiment config files (default: /esarchive/autosubmit/\$EXPID/conf)"
-    echo ""
     echo "Available commands:"
-    echo "  init-user   Setup user-specific configuration in ~/as4"
+    echo "  init-user   Setup user configuration (~/.config/ece4-exp/defaults.yml)"
     echo "  info        Show current experiment configuration"
     echo "  list        List all available recipes and weekly tests"
     echo "  generate    Generate experiment configuration"
     echo "  validate    Validate experiment configuration (optional: path to yml)"
     echo "  save        Save changes as a recipe (optional: recipe name)"
     echo ""
-    echo "Flags for 'generate' and 'info':"
+    echo "Core flags for 'generate':"
     echo "  --platform <id>      HPC Platform (e.g. bsc-marenostrum5)"
-    echo "  --launcher <type>    Launcher type (e.g. slurm)"
+    echo "  --launcher <type>    Launcher type (e.g. slurm-wrapper-taskset)"
     echo "  --kind <kind>        Launcher kind (e.g. CPLD-SR, auto)"
     echo "  --sim-procs <n>      Number of processors for SIM job"
-    echo "  --recipe <name>      User recipe name"
+    echo "  --recipe <name>      Recipe name (e.g. gcm-sr.yml)"
     echo "  --repo-owner <user>  ECE4 repository owner"
     echo "  --repo-branch <ref>  ECE4 repository branch"
-    echo "  --dry-run            Preview generated YAML"
     echo ""
-    echo "Flags for 'save':"
-    echo "  --recipe <name>      Current user recipe name (to compute overlay)"
-    echo "  --expid <id>         Override experiment ID"
+    echo "User-specific flags for 'generate':"
+    echo "  --expid <id>         Experiment ID"
+    echo "  --scratch <path>     Scratch directory path"
+    echo "  --account <name>     HPC account/project"
+    echo "  --walltime <hours>   Walltime in hours (e.g. 48)"
+    echo "  --description <txt>  Experiment description"
+    echo ""
+    echo "Output control:"
+    echo "  --dry-run            Preview generated YAML without writing"
+    echo "  -o, --output <file>  Output file name (default: experiment.yml)"
+    echo ""
+    echo "Note: Parameters are resolved from: CLI args > ~/.config/ece4-exp/defaults.yml > autosubmit files"
+    echo "For autosubmit compatibility, you can still use --expdef and --jobs flags."
 }
 
 # --- Main ---

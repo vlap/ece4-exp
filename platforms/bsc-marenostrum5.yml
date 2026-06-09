@@ -1,8 +1,6 @@
 # MN5 Cores: https://gitlab.earth.bsc.es/es/auto-ecearth4/-/wikis/mn5_cores
 - base.context:
-    ppn: 112  # 112 cores per node
-    experiment:
-      ini_dir: "/gpfs/projects/bsc32/models/ecearth/%EXPERIMENT.CONFIGURATION.INI_VERSION%/inidata"
+    ppn: 112  # 112 cores per node (can also be read from ecearth4 platform file)
     slurm-wrapper-taskset:
       oifs:
         omp_num_threads: 4

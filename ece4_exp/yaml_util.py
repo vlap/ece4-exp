@@ -128,6 +128,28 @@ def load_yaml_config(path: str):
 
     raise ValueError(f"{path} has unsupported YAML structure")
 
+def load_platform_yaml(path: str):
+    """Load ecearth4 platform file and extract all base.context sections.
+
+    Platform files can have multiple tasks, but we only want the base.context parts.
+    Returns a merged dict of all base.context sections found.
+    """
+    if not os.path.exists(path):
+        return {}
+
+    data = load_yaml(path)
+
+    if not isinstance(data, list):
+        return {}
+
+    # Merge all base.context sections found in the file
+    merged = {}
+    for item in data:
+        if isinstance(item, dict) and "base.context" in item:
+            deep_merge(merged, item["base.context"])
+
+    return merged
+
 
 def save_yaml_config(path: str, cfg: dict, mode: str = "auto-ece4"):
     """Save config in old or new format."""

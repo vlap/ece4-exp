@@ -1,0 +1,234 @@
+ece4:
+  experiment:
+
+    id: "%DEFAULT.EXPID%"
+    description: "%DEFAULT.DESCRIPTION% | %DEFAULT.EXPID% | %DEFAULT.HPCARCH% | %GIT.SOURCES_BRANCH%"
+
+    schedule:
+      all: "DO NOT CHANGE THIS! HANDLED BY AUTO-ECE4"
+      nlegs: 1
+
+      # If true, remove the rundir folder before starting the experiment (if it exists)
+      # Please note that this will disable the job.resubmit option
+      # To be used only for development purposes
+    run_from_scratch: false
+
+    nemo:
+      start_from:
+          # Chose ONE of the options below:
+          # 1) Cold start
+          #    Do not fill in any of the parameters below
+          # 2) Start from initialisation of temperature and salinity (ts)
+          #    Set 'ts_state.file' with the path to a NetCDF file that contains the 3D
+          #    temperature (thetao) and salinity (so) fields. Optionally, set
+          #    'ts_state.weight_file' if the ts_state.file needs to be interpolated.
+          #    For the provided WOA Levitus climatology use 'ts_state.file: woa13-levitus-L75.nc'
+          #    and 'ts_state.weight_file: weights_WOA13d1_2_eORCA1_bilinear.nc'
+          # 3) Start from global restart files
+          #    Set 'restart.dir' where the 'restart.nc' (oce), 'restart_ice.nc' (ice) and
+          #    'restart_trc.nc' (pisces/top) files are located
+        ts_state:
+          file:
+          weight_file:
+        restart:
+          dir:
+    oifs:
+        # If true: Replace date in initial conditons by start date of the run
+      overwrite_date: true
+        # Inidate in the original initial conditions
+      inidate: 19900101
+
+    lpjg:
+      start_from:
+           # Choose which LPJG state to start from. 
+           # Only 1850 available currently 
+        lpjg_state: lpjg_state_1850
+
+      # Configure CMIP, oifs and nemo forcings
+    forcing:
+        # Configure CMIP forcings
+      cmip:
+        version: CMIP7          # choose CMIP6 or CMIP7
+        experiment_id: piControl       # e.g. "historical", "ssp245", "ssp370", "ssp585", "piControl", "control-1990"
+                                        # check scriptlib/config-cmip-experiment.yml for more details/options
+                                        # if left empty, it will run as historical + ssp245 transient forcing
+                                        # unless overriden by specific configuration in this file
+        # Configure oifs forcings (e.g. orbital forcing)
+      oifs:
+        macv2sp:
+            # Activate simple plumes aerosols. Options: 0 (off), 1 (no indirect effect),
+            # 2 (default, direct+indirect effect). IGNORED if M7 interactive aerosols are activated.
+        orbital:
+            #   if forcing.cmip.fixyear > 0 then the defaults are set as
+            #   ORBMODE = fixed_year and ORBIY = fixyr
+            #   this can be overwritten by setting "mode" and "year" explicitely
+            #
+            #   sets ORBMODE in the NAMORB namelists
+            #   default: variable_year
+            # mode: variable_year
+            #
+            #   sets ORBIY in the NAMORB namelists
+            #   default: experiment.schedule.start.year
+            # year:
+
+        # Configure nemo forcing
+      nemo:
+        ssr:
+            # Surface restoring will be activated when `data` is not empty
+          data:    # e.g. 's5' refers to ORAS5 dataset available at HPC2020 and MN5
+          climatology:   # false for inter-annual data (default), true to use a climatology
+            # Coefficients for sea surface temperature and salinity restoring. Set to 0 if not a negative number
+          sstr_coeff:    # when a negative float, e.g. -40.0,   activate SST restoring: nn_sstr=1 with rn_dqdt={{sstr_coeff}}.
+          sssr_coeff:    # when a negative float, e.g. -166.67, activate SSS restoring: nn_sssr=2 with rn_deds={{sssr_coeff}}.
+            # Conventions for target data location, filenames, and variables within them. 
+            # If empty/undefined, default conventions are used. See scripts/runtime/scriptlib/config-nemo.yml
+          conventions:   # e.g. !noparse "{{model_config.nemo.all_forcings.default_srr_conventions}}"
+        dmp:
+            # 3D nudging of temperature and salinity
+          data:    # e.g. 'en4-v4.2.2' refers to EN4 dataset available at HPC2020 and MN5
+          climatology:   # false for inter-annual data (default), true to use a climatology
+          resto:   # name of the resto.nc containing restoration coeff. field (use dmp_tools to create this)
+            # Conventions for target data location, filenames, and variables within them.
+            # If empty/undefined, default conventions are used. See scripts/runtime/scriptlib/config-nemo.yml
+          conventions:   # e.g. !noparse "{{model_config.nemo.all_forcings.default_dmp_conventions}}"
+        trcssr:
+            # PISCES tracer surface restoring will be activated when `data` is not empty
+          data:    # at BSC we have following products: ESA_CCI_v5, ESA_CCI_v5-clim, ESA_CCI_v6
+          conventions:   # e.g. !noparse "{{model_config.nemo.all_forcings.default_trcssr_conventions}}"
+        co2:   # if a number -- constant pCO2; if a string -- file with pCO2 data; if empty -- read atcco2.txt
+
+        # Atmospheric forcing for nemo-standalone simulations
+      nemo_only:
+          # Select one of the available forcing sets or define your own. Available sets are:
+          # * CoreII_interannual (provided in the official inidata);
+          # * ERA5_HRES (available on HPC2020 and MN5)
+          # * JRA55_1.5 (available on MN5)
+          # Conventions for location and names of atmospheric forcing files and variables within them
+          # are defined in scripts/runtime/scriptlib/config-nemo-only.yml and a matching namelist template
+        atmospheric: !noparse "{{model_config.nemo.all_forcings.CoreII_interannual}}"
+        fixed_year: true    # true for a climatology, false for yearly varying or integer year for fixed-year forcing (e.g. 2000)
+
+    monitoring:
+      activate: true
+      reference_vals:
+          # Provide reference values to be shown with the time series
+          # Example values are for present day climate, change for pre-industrial
+          # Comment any line (or set its key value=None) to disable the reference value feature
+          # Optional key "label" describes the origin of the reference value
+        tas: {"value": 14.4, "label": "ERA5 (1991-2020)"}
+        pr: {"value": 2.93, "label": "ERA5 (1991-2020)"}
+        psl: {"value": 101143, "label": "ERA5 (1991-2020)"}
+        tos: {"value": 18.65, "label": "HadISST (1991-2020)"}
+      # Configure ECmean4 diagnostics for model tuning and evaluation
+      # 'global_mean' activates the Global Mean diagnostics https://ecmean4.readthedocs.io/en/latest/globalmean.html
+      # 'performance_indices' activates Reicher and Kim (2008) Performance Indices https://ecmean4.readthedocs.io/en/latest/performanceindices.html
+      # Further configuration is available in templates/ecmean/config-ecmean.j2
+      # "Frequency" is the number of years between each ECmean4 run
+      # "Year1" and "Year2" are the years to be used in the ECmean4 run
+      # Options are not conflicting, and if possible can be used together
+      # If None is defined, the default is to run on the entire experiment period
+    ecmean:
+      activate: true
+      diags: ['global_mean', 'performance_indices']
+      frequency: 1
+      year1:
+      year2:
+
+    saveic:
+      activate: false
+      nprocs: 4
+      config:
+          # options: leg, run, freq
+        running: "leg"
+          # if running with freq, run every frequency legs
+        frequency: 1
+      nemo.rebuild.path: !noparse_jinja "{{ experiment.src_dir }}/nemo-4.2/tools/REBUILD_NEMO"
+      oifs:
+        output_freq: "1y"   # frequency for writing the oifs output for saveic
+                            # possible values Ny, Nmo, Nd
+                            # where N is the freq multiplier
+                            # e.g. "3mo" for writing output every 3rd month
+        processing: true    # set "false" if oifs should only write output
+                            # for generating new ICs but suppress running
+                            # generate_initial_conditions_for_oifs.sh
+
+
+    ini_dir: "/gpfs/projects/bsc32/models/ecearth/%EXPERIMENT.CONFIGURATION.INI_VERSION%/inidata"
+  model_config:
+    components: [oifs, xios, nemo, rnfm, oasis]         # Include 'ismm' to activate ism coupling
+      # Tuning is activated by providing a file below. You can also specify it per component
+    tuning_file: "{{se.cli.cwd}}/templates/tuning_v0.3.yml"
+
+    oifs:
+      grid: TL255L91      # grid name, "TCO95L91" is the default
+      wave_model: true    # Activate (true) or not (false) the wave model
+      nudging:            # false by default
+      nudging_path:       # e.g. !noparse "{{experiment.repo_dir}}/nudging/atmos # path to the nudging files
+        # Building DP and SP versions of OpenIFS are controlled in build/user-settings.yml
+      precision: DP       # SP = Use OpenIFS in single precision. DP = Use OpenIFS in double precision. Defaults to DP  
+        # "rollback" enables a fix which artificially keep the amount of timestep run by the model as it 
+        # were always the second leg of the simulation. The simulation will proceed as usual, but the
+        # restart files will be renamed accordingly. This is used to keep the OIFS heap memory low with extremely long simulations
+        # Once enabled, it cannot be turned off during the experiment
+      rollback: true
+        #Soil albedo code
+      no_soil_albedo: false   # Activate (false) or not (true) the soil albedo code
+        # Atmospheric Composition processes (chemistry & interactive aerosols)
+      compo:
+        activate: false
+        aerosols: 'hamm7'
+        chemistry: 'SimChem'   # 'SimChem' (simplified sulfur scheme), 'tm5' (full NOx-Ox-HC chemistry)
+
+    nemo:
+      grid: eORCA1L75_ISO     # grid name, supported options are eORCA1L75_ISO, eORCA1L75, ORCA1L75, ORCA2L31, PALEORCA2L31
+      pisces: false       # false by default
+        # Inert tracers are activated via `inerttrc` list, e.g. inerttrc: [age, c14]
+      inerttrc:           # valid tracers are [age, cfc11, cfc12, sf6, c14], others are filtered out
+        # Decide which type of freshwater flux treatment (fwf) you want to use for ice shelves (isf_fwf) and icebergs (icb_fwf)
+        # default oasis if oifs component else spe
+        # isf_fwf: oasis    # spe (melt from file), 3eq (thermodynamic melt), oasis (rnfm excess snow)
+        # icb_fwf: oasis    # spe (melt from file), lagrangian (interactice icebergs), oasis (rnfm excess snow)
+
+      output:
+        meshmask: "{{ '%JOBS.ANDERSON_ACCELERATION.PROCESSORS%' }}"
+
+    oasis:
+        # OASIS debug options, refer to Section 3.2 (p. 43-44) of sources/oasis3-mct-5.2/oasis3-mct-5/doc/oasis3mct_UserGuide.pdf
+      debug_mode: 0        # 0 by default, accepted values: 0, 1, 2, 5, 10, 12, 15, 20, 30. Greater means larger verbosity.
+      time_statistics: 0   # 0 by default, accepted values: 0, 1, 2, 3. Greater means more statistics.
+      load_balancing: 1    # 0 by default, accepted values: 0, 1. 1 activate load balancing evaluation
+      expout:    # write each coupling field to netCDF each coupling time step (very slow model. For debugging purposes only!) 
+
+  job:
+      # Configure launch method, one of:
+      #   slurm-hetjob  # SLURM heterogeneous job
+      #   slurm-mp-taskset  # SLURM srun with multi-prog, hostfile and taskset
+      #   slurm-wrapper-taskset  # SLURM srun with wrapper, hostfile and taskset
+      #   slurm-shell  # SLURM + generic shell script template (needs job.launch.shell.script)
+      # For configuration of the respective method, see next section!
+    launch:
+      method: slurm-wrapper-taskset
+
+      # If true, the job will resubmit itself to run a further leg
+    resubmit: false
+
+    slurm:
+      sbatch:
+        opts:
+          time: "%CURRENT_WALLCLOCK%:00"
+          output: !noparse "{{experiment.id}}.log"
+          job-name: !noparse "ECE4_{{experiment.id}}"
+            #account: hpc-account
+          qos: "%CURRENT_QUEUE%"
+          account: "%CURRENT_PROJECT%"
+      srun:
+        args: [--label, --kill-on-bad-exit]
+    oifs:
+      omp_num_threads: 4
+      omp_stacksize: "64M"
+
+    groups:
+    - {nodes: 1, oifs: 25, nemo: 9, xios: 1, rnfm: 1}
+    - {nodes: 9, oifs: 25, nemo: 10, xios: 1}
+
+  scratch: "%CURRENT_ROOTDIR%"

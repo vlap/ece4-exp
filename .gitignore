@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -21,18 +20,23 @@ wheels/
 .installed.cfg
 *.egg
 
-# Experiment artifacts
-*_experiment.yml
-*_experiment_pristine.yml
+# Generated/Downloaded
 external/
-logs/
+*_pristine.yml
+*_experiment.yml
 
-# User config
-.env
-.as4/
-
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local symlinks (user-specific)
+auto-ecearth4
+ecearth4
+readthedocs
