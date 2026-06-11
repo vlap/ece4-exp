@@ -101,7 +101,15 @@ def create_recipe_from_diff(modified_file, pristine_file, recipe_path,
 
     overlay = compute_overlay(pristine, modified)
 
-    # Resolution order for user_recipe_name: 1. CLI flag, 2. expdef.yml
+    # Resolution order for the base recipe name:
+    # 1. CLI --recipe flag
+    # 2. _ece4_recipe stamp in the modified file (written at generate time)
+    # 3. Autosubmit expdef.yml
+    if not user_recipe_name:
+        user_recipe_name = modified.get("experiment", {}).get("_ece4_recipe")
+        if user_recipe_name:
+            log_info(f"Using recipe from generated file: {user_recipe_name}")
+
     if not user_recipe_name and expdef_path and os.path.exists(expdef_path):
         try:
             expdef_conf = load_yaml(expdef_path)

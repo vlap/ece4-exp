@@ -315,11 +315,14 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, cpus_per_node,
         merged = deep_merge(merged, deepcopy(recipe))
     merged = deep_merge(merged, cli_overrides)
 
-    # Stamp which EC-Earth4 version this config was generated for
+    # Stamp metadata so 'ece4-exp save' can auto-load the recipe without --recipe
+    if "experiment" not in merged:
+        merged["experiment"] = {}
     if ece4_version:
-        if "experiment" not in merged:
-            merged["experiment"] = {}
         merged["experiment"]["_ece4_version"] = ece4_version
+    if user_recipe:
+        # Store stem only (no .yml) for cleaner lookup
+        merged["experiment"]["_ece4_recipe"] = Path(user_recipe).stem
 
     if dry_run:
         print("\n--- Generated YAML (dry-run) ---\n")
