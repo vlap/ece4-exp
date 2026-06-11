@@ -473,29 +473,29 @@ def main():
     if args.info:
         sys.exit(0)
 
-    try:
-        log_info(f"ECE4 repository synchronization: owner='{repo_owner}', ref='{repo_branch}'")
-        result = clone_ece4_yml_repo(
-            repo_owner,
-            repo_branch,
-            "scripts/runtime/experiment-config-example.yml",
-            # Uses user cache: ~/.config/ece4-exp/cache/ecearth4/
-            # tmpd parameter removed - now uses smart default from paths.ECE4_CACHE_REPO
-        )
+    if os.environ.get("ECE4_SKIP_SYNC"):
+        log_info("ECE4 repo sync skipped (ECE4_SKIP_SYNC set).")
+    else:
+        try:
+            log_info(f"ECE4 repository synchronization: owner='{repo_owner}', ref='{repo_branch}'")
+            result = clone_ece4_yml_repo(
+                repo_owner,
+                repo_branch,
+                "scripts/runtime/experiment-config-example.yml",
+            )
 
-        # Build status message
-        if result.get("switched_remote"):
-            status = "(switched repo)"
-        elif result["is_cached"]:
-            status = "(cached)"
-        else:
-            status = "(initialized)"
+            if result.get("switched_remote"):
+                status = "(switched repo)"
+            elif result["is_cached"]:
+                status = "(cached)"
+            else:
+                status = "(initialized)"
 
-        log_info(f"Successfully synced {repo_branch} at {result['commit']} {status}.")
+            log_info(f"Successfully synced {repo_branch} at {result['commit']} {status}.")
 
-    except Exception as e:
-        log_error(f"Failed to sync ECE4 repo:\n{e}")
-        sys.exit(1)
+        except Exception as e:
+            log_error(f"Failed to sync ECE4 repo:\n{e}")
+            sys.exit(1)
 
     # Auto-generate output filename if not specified
     output_file = args.output

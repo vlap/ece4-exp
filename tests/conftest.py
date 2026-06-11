@@ -1,26 +1,53 @@
 """
-Session-scoped fixture that writes a minimal defaults.yml so CLI tests
-work on a clean CI runner with no ~/.config/ece4-exp/ directory.
+Session-scoped fixtures that make the test suite self-contained:
+
+1. Writes a minimal ~/.config/ece4-exp/defaults.yml so CLI tests work on
+   a clean CI runner that has never run 'ece4-exp setup'.
+
+2. Seeds a minimal experiment-config-example.yml in the cache directory and
+   sets ECE4_SKIP_SYNC so tests never try to clone git.smhi.se.
 """
+import os
 import pytest
 from pathlib import Path
 from ece4_exp import paths
 
+# Minimal experiment-config-example.yml that mirrors the real structure
+# Used so generate_config() can load a base without network access.
+_BASE_CONFIG = """\
+ece4:
+  experiment:
+    id: XXXX
+    description: A new ECE4 experiment
+    schedule:
+      all: !rrule >
+        DTSTART:18500101 RRULE:FREQ=YEARLY;INTERVAL=1;UNTIL=18510101
+      nlegs: 1
+    run_from_scratch: false
+  model_config:
+    components: []
+  job:
+    launch:
+      method: slurm-wrapper-taskset
+    resubmit: true
+    slurm:
+      sbatch:
+        opts:
+          time: "00:30:00"
+          output: XXXX.log
+          job-name: ECE4_XXXX
+"""
+
 
 @pytest.fixture(autouse=True, scope="session")
-def minimal_user_defaults(tmp_path_factory):
-    """Create ~/.config/ece4-exp/defaults.yml with the minimum required fields.
+def ci_environment(tmp_path_factory):
+    """Prepare a self-contained environment for the test suite."""
 
-    This makes CLI tests that call 'ece4-exp generate ... --dry-run' work on a
-    fresh CI runner that has never run 'ece4-exp setup'.  The fixture is
-    autouse so every test benefits without having to request it explicitly.
-    """
-    config_dir = paths.USER_CONFIG_DIR
+    # --- 1. defaults.yml ---
     defaults_file = paths.USER_DEFAULTS_FILE
-
-    # Only write if the file doesn't already exist (respect real user config)
+    created_defaults = False
     if not defaults_file.exists():
-        config_dir.mkdir(parents=True, exist_ok=True)
+        paths.USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         paths.USER_RECIPES_DIR.mkdir(parents=True, exist_ok=True)
         paths.USER_PLATFORMS_DIR.mkdir(parents=True, exist_ok=True)
         defaults_file.write_text(
@@ -32,12 +59,25 @@ def minimal_user_defaults(tmp_path_factory):
             "account: testaccount\n"
             "qos: gp_bsces\n"
         )
-        created = True
-    else:
-        created = False
+        created_defaults = True
+
+    # --- 2. Seed minimal base config so no git clone is needed ---
+    cache_runtime = paths.ECE4_CACHE_REPO / "scripts" / "runtime"
+    base_config = cache_runtime / "experiment-config-example.yml"
+    created_cache = False
+    if not base_config.exists():
+        cache_runtime.mkdir(parents=True, exist_ok=True)
+        base_config.write_text(_BASE_CONFIG)
+        created_cache = True
+
+    # --- 3. Skip git sync for the whole test session ---
+    os.environ["ECE4_SKIP_SYNC"] = "1"
 
     yield
 
-    # Clean up only what we created (don't remove a real user's config)
-    if created and defaults_file.exists():
+    # Tear down only what we created
+    os.environ.pop("ECE4_SKIP_SYNC", None)
+    if created_defaults and defaults_file.exists():
         defaults_file.unlink()
+    if created_cache and base_config.exists():
+        base_config.unlink()
