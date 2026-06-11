@@ -32,10 +32,10 @@ The tool merges four configuration layers into a single validated YAML file:
         ↓
    Generated config     (a001_experiment.yml, ready to submit)
 
-Each layer overrides the previous. Your account and qos come from ``defaults.yml``
-once and are never overridden by platform or recipe. Walltimes are set per
-experiment type in the platform files; override with ``--walltime`` on the CLI
-when a run needs more time.
+Each layer overrides the previous. Your account comes from ``defaults.yml``.
+QoS is read automatically from the EC-Earth4 platform file — no need to set it.
+Walltimes are set per experiment type in the platform files; override with
+``--walltime`` on the CLI when a run needs more time.
 
 **Nodes, not processors**: Instead of calculating ``10 nodes × 112 cores/node = 1120``, you just say ``10``. The tool looks up your platform's cores-per-node and does the math.
 
@@ -198,8 +198,9 @@ User defaults are stored in ``~/.config/ece4-exp/defaults.yml``:
 
    platform: bsc-marenostrum5
    account: bsc32
-   qos: gp_bsces
    repo_branch: v4.1.8
+   # qos is read from the EC-Earth4 platform file automatically
+   # Override only if needed: qos: your_queue_name
 
    # Optional: Pre-fill recipe so you can omit it on the command line
    # recipe: gcm-sr

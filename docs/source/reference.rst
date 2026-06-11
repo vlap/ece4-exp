@@ -49,12 +49,13 @@ setup
 
    ece4-exp setup
 
-Asks 4 questions:
+Asks 3 questions:
 
 1. Platform (MareNostrum5 or ECMWF HPC2020)
 2. Account/project name
-3. QoS (quality of service)
-4. Username (optional, for reference)
+3. Username (optional, for reference)
+
+QoS is read automatically from the EC-Earth4 platform file — no need to set it.
 
 Creates ``~/.config/ece4-exp/defaults.yml``. Also shows the TAB completion command to add to your shell config.
 
@@ -79,11 +80,7 @@ Creates ``~/.config/ece4-exp/defaults.yml``. Also shows the TAB completion comma
       (e.g., bsc32)
    Account [bsc32]: bsc32
 
-   3. QoS (Quality of Service)?
-      Default for bsc-marenostrum5: gp_bsces
-   QoS [gp_bsces]:
-
-   4. Your username (optional, for reference)?
+   3. Your username (optional, for reference)?
       (e.g., bsc32XXX)
    Username [skip]:
 
@@ -455,11 +452,11 @@ Created by ``ece4-exp setup``. All fields are optional — you only need the one
 
    # Your HPC Account
    account: bsc32
-   qos: gp_bsces
+   # qos is read automatically from the EC-Earth4 platform file
+   # Override only if you need a non-default queue: qos: your_queue_name
 
-   # Optional: Pre-fill recipe and/or node count to save typing
+   # Optional: Pre-fill recipe to skip typing it
    # recipe: gcm-sr
-   # sim_procs: 1120
 
 **Resolution order**: base config → platform → recipe → ``defaults.yml`` + CLI flags
 
