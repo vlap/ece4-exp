@@ -1,6 +1,6 @@
-# Include recipe and platform files
-recursive-include recipes *.yml *.yaml
-recursive-include platforms *.yml *.yaml
+# Include recipe and platform files (now inside ece4_exp package)
+recursive-include ece4_exp/recipes *.yml *.yaml
+recursive-include ece4_exp/platforms *.yml *.yaml
 
 # Include documentation
 include README.md

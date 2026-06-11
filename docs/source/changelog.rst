@@ -3,6 +3,30 @@ Changelog
 
 All notable changes to |ece4exp| are documented here.
 
+Version 1.1.2 (2026-06-11)
+--------------------------
+
+Critical Fix
+~~~~~~~~~~~~
+
+* **Fixed missing recipes and platforms in pip package**: Built-in recipes and platform configs were not included in pip-installed packages
+
+  * Moved ``recipes/`` and ``platforms/`` inside ``ece4_exp/`` package directory
+  * Updated packaging configuration to include them as package data
+  * All 6 built-in recipes now available: gcm-sr, omip-sr, amip-sr, ccycle-sr, aa2s, OMIP_with_ERA5_6_Cycles
+  * Both platform configs now available: bsc-marenostrum5, ecmwf-hpc2020
+  * **Impact**: v1.1.0 and v1.1.1 pip users had NO built-in recipes (only worked from source)
+
+Improvements
+~~~~~~~~~~~~
+
+* **Enhanced ``list`` command**: Shows ``(empty)`` or ``(N custom)`` status for user directories
+
+  * Makes it clear that empty user directories are expected behavior
+  * Example: ``User recipes: ~/.config/ece4-exp/recipes (empty)``
+
+**Installation**: ``pip install --upgrade ece4-exp``
+
 Version 1.1.1 (2026-06-11)
 --------------------------
 

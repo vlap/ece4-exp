@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ece4-exp"
-version = "1.1.1"
+version = "1.1.2"
 authors = [
   { name="Vladimir Lapin", email="vladimir.lapin@bsc.es" },
 ]
@@ -36,4 +36,11 @@ ece4-exp = "ece4_exp.cli:main"
 
 [tool.setuptools]
 packages = ["ece4_exp"]
-include-package-data = true
+
+[tool.setuptools.package-data]
+ece4_exp = [
+    "recipes/*.yml",
+    "recipes/*.yaml",
+    "platforms/*.yml",
+    "platforms/*.yaml"
+]

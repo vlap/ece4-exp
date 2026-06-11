@@ -2,14 +2,16 @@ import os
 from pathlib import Path
 
 # Base directory: ece4_exp/
-# Repo root is 1 level up
+# Repo root is 1 level up (for development), or package dir (for pip install)
 ROOT_DIR = Path(__file__).parent.parent.resolve()
+PACKAGE_DIR = Path(__file__).parent.resolve()
 
 # Main Directories (as Path objects for CLI, keeping string versions for backward compat)
-RECIPES_DIR = ROOT_DIR / "recipes"
+# Recipes and platforms are now inside the package for proper pip packaging
+RECIPES_DIR = PACKAGE_DIR / "recipes"
 EXTERNAL_DIR = ROOT_DIR / "external"
-YML_TOOLS_DIR = ROOT_DIR / "ece4_exp"
-PLATFORMS_DIR = ROOT_DIR / "platforms"
+YML_TOOLS_DIR = PACKAGE_DIR
+PLATFORMS_DIR = PACKAGE_DIR / "platforms"
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 DOCS_DIR = ROOT_DIR / "docs"
 
