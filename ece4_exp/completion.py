@@ -17,7 +17,7 @@ _ece4_exp_completion() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Available commands
-    commands="list info init-user generate inspect validate save"
+    commands="list info setup init-user generate inspect validate save completion"
 
     # Command-specific options
     generate_opts="--recipe --sim-procs --expid --platform --launcher --kind --account --walltime --description --repo-owner --repo-branch --output --dry-run --quiet"
@@ -36,9 +36,24 @@ _ece4_exp_completion() {
     # Command-specific completions
     case "${command}" in
         generate)
+            # Positional arg 1: recipe (without --recipe flag)
+            if [ $COMP_CWORD -eq 2 ] && [[ ! "${cur}" == -* ]]; then
+                local recipes=$(ls ~/.config/ece4-exp/recipes/*.yml 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/.yml$//')
+                COMPREPLY=( $(compgen -W "${recipes} gcm-sr omip-sr amip-sr ccycle-sr" -- ${cur}) )
+                return 0
+            fi
+            # Positional arg 2: procs (just show common values)
+            if [ $COMP_CWORD -eq 3 ] && [[ ! "${cur}" == -* ]]; then
+                COMPREPLY=( $(compgen -W "224 448 896 1120 2240 4480" -- ${cur}) )
+                return 0
+            fi
+            # Positional arg 3: expid (no completion, user types)
+            if [ $COMP_CWORD -eq 4 ] && [[ ! "${cur}" == -* ]]; then
+                return 0
+            fi
+            # Flag-based completion (old syntax still works)
             case "${prev}" in
                 --recipe)
-                    # Complete recipe filenames from ~/.config/ece4-exp/recipes/ and built-in
                     local recipes=$(ls ~/.config/ece4-exp/recipes/*.yml 2>/dev/null | xargs -n1 basename 2>/dev/null)
                     COMPREPLY=( $(compgen -W "${recipes} gcm-sr.yml omip-sr.yml amip-sr.yml ccycle-sr.yml" -- ${cur}) )
                     return 0
@@ -60,7 +75,7 @@ _ece4_exp_completion() {
                     return 0
                     ;;
                 --repo-branch)
-                    COMPREPLY=( $(compgen -W "main v4.1.6 v4.1.5 v4.2.0" -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "main v4.1.8 v4.1.6 v4.2.0" -- ${cur}) )
                     return 0
                     ;;
                 *)
@@ -69,11 +84,15 @@ _ece4_exp_completion() {
                     ;;
             esac
             ;;
+        completion)
+            COMPREPLY=( $(compgen -W "bash zsh" -- ${cur}) )
+            return 0
+            ;;
         inspect)
-            # Complete recipe names
+            # Complete recipe names (with or without .yml)
             if [ $COMP_CWORD -eq 2 ]; then
-                local recipes=$(ls ~/.config/ece4-exp/recipes/*.yml 2>/dev/null | xargs -n1 basename 2>/dev/null)
-                COMPREPLY=( $(compgen -W "${recipes} gcm-sr.yml omip-sr.yml amip-sr.yml ccycle-sr.yml" -- ${cur}) )
+                local recipes=$(ls ~/.config/ece4-exp/recipes/*.yml 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/.yml$//')
+                COMPREPLY=( $(compgen -W "${recipes} gcm-sr omip-sr amip-sr ccycle-sr" -- ${cur}) )
             fi
             return 0
             ;;
@@ -115,11 +134,13 @@ _ece4_exp() {
     commands=(
         'list:List available recipes'
         'info:Show current configuration info'
-        'init-user:Initialize user configuration'
+        'setup:Initialize user configuration'
+        'init-user:Initialize user configuration (alias)'
         'generate:Generate experiment configuration'
         'inspect:View recipe contents'
         'validate:Validate experiment configuration'
         'save:Save changes as a recipe'
+        'completion:Generate shell completion script'
     )
 
     local -a generate_opts
@@ -134,7 +155,7 @@ _ece4_exp() {
         '--walltime[Walltime in hours]:hours:'
         '--description[Description]:description:'
         '--repo-owner[Repository owner]:owner:(ec-earth)'
-        '--repo-branch[Repository branch]:branch:(main v4.1.6 v4.1.5 v4.2.0)'
+        '--repo-branch[Repository branch]:branch:(main v4.1.8 v4.1.6 v4.2.0)'
         '(-o --output)'{-o,--output}'[Output file]:file:_files'
         '--dry-run[Preview without writing]'
         '--quiet[Suppress colored output]'

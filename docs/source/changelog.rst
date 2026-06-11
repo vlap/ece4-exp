@@ -3,6 +3,27 @@ Changelog
 
 All notable changes to |ece4exp| are documented here.
 
+Version 1.1.1 (2026-06-11)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+* **Fixed pristine file location**: Pristine copies now saved to ``~/.config/ece4-exp/`` instead of package directory
+
+  * Previous behavior broke for pip-installed users (read-only site-packages)
+  * Fixes ``ece4-exp save`` command to properly extract recipes
+  * Cleaned up 7 orphaned pristine files from source directory
+
+* **Fixed shell completion**: Updated bash/zsh completion for new syntax
+
+  * Added support for positional args: ``ece4-exp generate <TAB>`` → recipe names
+  * Updated commands: ``setup`` (not just ``init-user``)
+  * Updated EC-Earth4 versions: v4.1.8 (latest), v4.1.6, v4.2.0
+  * Recipe completion now auto-strips ``.yml`` suffix
+
+**Installation**: ``pip install --upgrade ece4-exp``
+
 Version 1.1.0 (2026-06-11)
 --------------------------
 

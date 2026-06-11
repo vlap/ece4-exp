@@ -516,7 +516,9 @@ def main():
     )
 
     if not args.dry_run:
-        shutil.copyfile(output_file, os.path.join(paths.YML_TOOLS_DIR, output_file.replace(".yml", "_pristine.yml")))
+        # Save pristine copy for recipe extraction
+        pristine_file = paths.USER_CONFIG_DIR / output_file.replace(".yml", "_pristine.yml")
+        shutil.copyfile(output_file, pristine_file)
 
         from .yaml_util import _get_color
         cyan = _get_color(COLOR_CYAN)

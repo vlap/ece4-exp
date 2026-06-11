@@ -70,9 +70,9 @@ def compute_overlay(base, modified):
 # ------------------------------------------------------------------
 
 def create_recipe_from_diff(expid: str, expdef_path, recipe_path, user_recipe_name=None):
-    
+
     modified_file = f"{expid}_experiment.yml"
-    pristine_file = os.path.join(paths.YML_TOOLS_DIR, f"{expid}_experiment_pristine.yml")
+    pristine_file = paths.USER_CONFIG_DIR / f"{expid}_experiment_pristine.yml"
 
     if not os.path.exists(modified_file):
         log_error(f"Modified experiment file not found: {modified_file}")
