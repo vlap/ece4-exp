@@ -420,21 +420,15 @@ completion
 
 **Setup**:
 
-**Bash**:
-
 .. code-block:: bash
 
-   # Add to ~/.bashrc
-   echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
-   source ~/.bashrc
+   # One-time setup - no config file editing needed
+   activate-global-python-argcomplete --user
+   # Restart your shell
 
-**Zsh**:
+That's it! This enables completion for ALL Python CLIs (pip, aws, django-admin, ece4-exp, etc.)
 
-.. code-block:: bash
-
-   # Add to ~/.zshrc
-   echo 'eval "$(ece4-exp completion zsh)"' >> ~/.zshrc
-   source ~/.zshrc
+**How it works**: Creates ``~/.bash_completion.d/python-argcomplete`` which your shell auto-loads.
 
 **What it enables**:
 

@@ -66,7 +66,7 @@ def init_user_config():
         platform = "bsc-marenostrum5"
         qos_default = "gp_bsces"
         account_default = "bsc32"
-        user_example = "bsc32XXX"
+        user_example = "bsc032XXX"
     else:
         platform = "ecmwf-hpc2020"
         qos_default = "normal"
@@ -146,10 +146,31 @@ qos: {qos}
         log_info(f"✓ Configuration saved to: {COLOR_CYAN}{defaults_file}{COLOR_NC}")
         print("=" * 70)
         print()
+
+        # Enable shell completion automatically
+        print(f"{COLOR_CYAN}Enabling shell completion...{COLOR_NC}")
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["activate-global-python-argcomplete", "--user"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                log_info("✓ Shell completion enabled (restart your shell to activate)")
+            else:
+                log_warn("Could not enable completion automatically")
+                print(f"  Run manually: {COLOR_CYAN}activate-global-python-argcomplete --user{COLOR_NC}")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            log_warn("argcomplete not found (it's optional)")
+            print(f"  To enable completion: {COLOR_CYAN}activate-global-python-argcomplete --user{COLOR_NC}")
+
+        print()
         print(f"{COLOR_GREEN}You're all set!{COLOR_NC} Try generating your first experiment:")
         print()
         print(f"  {COLOR_CYAN}ece4-exp list{COLOR_NC}")
-        print(f"  {COLOR_CYAN}ece4-exp generate gcm-sr 1120 a001{COLOR_NC}")
+        print(f"  {COLOR_CYAN}ece4-exp generate gcm-sr 10 a001{COLOR_NC}")
         print()
         print("Your configuration:")
         print(f"  Platform: {platform}")

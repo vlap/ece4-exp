@@ -43,17 +43,7 @@ Installation
    cd ece4-exp
    pip install -e .
 
-**Enable shell completion** (optional):
-
-.. code-block:: bash
-
-   # Bash
-   echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
-   source ~/.bashrc
-
-   # Zsh
-   echo 'eval "$(ece4-exp completion zsh)"' >> ~/.zshrc
-   source ~/.zshrc
+**Shell completion**: Already enabled! ``ece4-exp setup`` automatically activates TAB completion. Just restart your shell after setup.
 
 Supported Platforms
 ~~~~~~~~~~~~~~~~~~~

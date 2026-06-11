@@ -14,8 +14,9 @@ ece4-exp generate gcm-sr 10 a001  # 10 nodes
 # 1. Install
 pip install ece4-exp
 
-# 2. Configure (platform, account)
+# 2. Setup (also enables TAB completion)
 ece4-exp setup
+# Restart your shell
 
 # 3. Generate experiment
 ece4-exp generate gcm-sr 10 a001  # 10 nodes = 1120 cores on MareNostrum5
@@ -99,20 +100,13 @@ se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 - **Full guide:** https://ece4-exp.readthedocs.io
 - **Help:** `ece4-exp --help` or `ece4-exp generate --help`
 
-## Tab Completion (Optional)
+## Tab Completion
 
-```bash
-# Global activation (recommended - works for all Python CLIs)
-pip install argcomplete
-activate-global-python-argcomplete --user
-# Restart your shell
+Already enabled! `ece4-exp setup` automatically activates completion.
 
-# Or manual activation (ece4-exp only)
-echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Now: `ece4-exp ge<TAB>` → `ece4-exp generate`
+Just restart your shell after setup:
+- `ece4-exp ge<TAB>` → `ece4-exp generate`  
+- Works for all Python CLIs (pip, aws, django-admin, etc.)
 
 ## Support
 
