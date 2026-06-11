@@ -32,6 +32,19 @@ jobs:
       run: |
         python -m pytest tests/ -v --tb=short
 
+    - name: Write test defaults (CI has no ~/.config/ece4-exp/defaults.yml)
+      run: |
+        mkdir -p ~/.config/ece4-exp
+        cat > ~/.config/ece4-exp/defaults.yml <<'EOF'
+        platform: bsc-marenostrum5
+        launcher: slurm-wrapper-taskset
+        kind: auto
+        repo_owner: ec-earth
+        repo_branch: v4.1.8
+        account: testaccount
+        qos: gp_bsces
+        EOF
+
     - name: Test CLI installation
       run: |
         ece4-exp --help
