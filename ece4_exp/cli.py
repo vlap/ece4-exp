@@ -351,6 +351,13 @@ def cmd_save(args):
 
 def main():
     """Main CLI entry point."""
+    # Enable argcomplete for automatic completion
+    try:
+        import argcomplete
+        ARGCOMPLETE_AVAILABLE = True
+    except ImportError:
+        ARGCOMPLETE_AVAILABLE = False
+
     parser = argparse.ArgumentParser(
         prog="ece4-exp",
         description="EC-Earth4 experiment configuration tool",
@@ -456,6 +463,10 @@ First time? Run 'ece4-exp setup' to configure platform and account.
     parser_save.add_argument("--recipe", help="Current user recipe name")
     parser_save.add_argument("-o", "--output", help="Recipe file name")
     parser_save.set_defaults(func=cmd_save)
+
+    # Enable argcomplete before parsing args
+    if ARGCOMPLETE_AVAILABLE:
+        argcomplete.autocomplete(parser)
 
     # Parse args
     args = parser.parse_args()

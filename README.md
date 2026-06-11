@@ -102,11 +102,14 @@ se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 ## Tab Completion (Optional)
 
 ```bash
-# Bash
-echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
+# Global activation (recommended - works for all Python CLIs)
+pip install argcomplete
+activate-global-python-argcomplete --user
+# Restart your shell
 
-# Zsh
-echo 'eval "$(ece4-exp completion zsh)"' >> ~/.zshrc
+# Or manual activation (ece4-exp only)
+echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 Now: `ece4-exp ge<TAB>` → `ece4-exp generate`
