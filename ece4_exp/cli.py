@@ -181,7 +181,7 @@ def cmd_generate(args):
     expid = args.expid or getattr(args, 'expid_flag', None)
 
     def _nodes_to_procs(n):
-        """Convert node count to processor count using platform ppn."""
+        """Convert node count to processor count by reading ppn from the platform file."""
         platform = args.platform
         if not platform:
             try:
@@ -189,15 +189,23 @@ def cmd_generate(args):
                 platform = defaults.get('platform')
             except Exception:
                 pass
-        if platform and 'marenostrum' in platform.lower():
-            ppn = 112
-        elif platform and 'ecmwf' in platform.lower():
-            ppn = 128
-        else:
-            ppn = 112
+
+        ppn = None
+        if platform:
+            platform_path = paths.get_platform_launchers_path(platform)
+            if platform_path:
+                try:
+                    launchers = load_yaml_config(platform_path)
+                    ppn = launchers.get('ppn')
+                except Exception:
+                    pass
+
+        if not ppn:
+            ppn = 112  # MareNostrum5 fallback
             if not platform:
                 log_warn("No platform configured. Run 'ece4-exp setup' first.")
-                log_info(f"Assuming {ppn} cores/node (MareNostrum5 default)")
+            log_info(f"Assuming {ppn} cores/node (MareNostrum5 default)")
+
         log_info(f"Converting {n} nodes → {n * ppn} processors ({ppn} cores/node)")
         return n * ppn
 
@@ -370,6 +378,12 @@ def main():
     except ImportError:
         ARGCOMPLETE_AVAILABLE = False
 
+    from importlib.metadata import version as _pkg_version
+    try:
+        _version = _pkg_version("ece4-exp")
+    except Exception:
+        _version = "unknown"
+
     parser = argparse.ArgumentParser(
         prog="ece4-exp",
         description="EC-Earth4 experiment configuration tool",
@@ -392,6 +406,8 @@ For detailed help: ece4-exp <command> --help
 Documentation: https://ece4-exp.readthedocs.io
         """
     )
+
+    parser.add_argument("--version", action="version", version=f"ece4-exp {_version}")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
