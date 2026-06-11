@@ -3,26 +3,45 @@ from pathlib import Path
 
 # Base directory: ece4_exp/
 # Repo root is 1 level up
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = Path(__file__).parent.parent.resolve()
 
-# Main Directories
-RECIPES_DIR = os.path.join(ROOT_DIR, "recipes")
-EXTERNAL_DIR = os.path.join(ROOT_DIR, "external")
-YML_TOOLS_DIR = os.path.join(ROOT_DIR, "ece4_exp")
-PLATFORMS_DIR = os.path.join(ROOT_DIR, "platforms")
-SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
-DOCS_DIR = os.path.join(ROOT_DIR, "docs")
+# Main Directories (as Path objects for CLI, keeping string versions for backward compat)
+RECIPES_DIR = ROOT_DIR / "recipes"
+EXTERNAL_DIR = ROOT_DIR / "external"
+YML_TOOLS_DIR = ROOT_DIR / "ece4_exp"
+PLATFORMS_DIR = ROOT_DIR / "platforms"
+SCRIPTS_DIR = ROOT_DIR / "scripts"
+DOCS_DIR = ROOT_DIR / "docs"
 
-# ECE4 repository paths (managed via sparse checkout)
-BASE_CONFIG_EXAMPLE = os.path.join(EXTERNAL_DIR, "ece4_yml_repo/scripts/runtime/experiment-config-example.yml")
-ECE4_PLATFORMS_DIR = os.path.join(EXTERNAL_DIR, "ece4_yml_repo/scripts/platforms")
+# String versions for backward compatibility with existing code
+_ROOT_DIR_STR = str(ROOT_DIR)
+_RECIPES_DIR_STR = str(RECIPES_DIR)
+_EXTERNAL_DIR_STR = str(EXTERNAL_DIR)
+_YML_TOOLS_DIR_STR = str(YML_TOOLS_DIR)
+_PLATFORMS_DIR_STR = str(PLATFORMS_DIR)
 
 # User config directory
 USER_CONFIG_DIR = Path.home() / ".config" / "ece4-exp"
 USER_DEFAULTS_FILE = USER_CONFIG_DIR / "defaults.yml"
+USER_RECIPES_DIR = USER_CONFIG_DIR / "recipes"
+USER_PLATFORMS_DIR = USER_CONFIG_DIR / "platforms"
+USER_CACHE_DIR = USER_CONFIG_DIR / "cache"
+ECE4_CACHE_REPO = USER_CACHE_DIR / "ecearth4"
+
+# ECE4 repository paths (managed via sparse checkout in user cache)
+# Prefer user cache, fallback to package dir for backward compatibility
+_ECE4_CACHE_BASE = ECE4_CACHE_REPO if ECE4_CACHE_REPO.exists() else EXTERNAL_DIR / "ece4_yml_repo"
+BASE_CONFIG_EXAMPLE = str(_ECE4_CACHE_BASE / "scripts/runtime/experiment-config-example.yml")
+ECE4_PLATFORMS_DIR = str(_ECE4_CACHE_BASE / "scripts/platforms")
 
 def get_recipe_path(recipe_name):
-    """Get path to recipe in recipes/ directory"""
+    """Get path to recipe, checking user recipes first, then built-in.
+
+    Search order:
+    1. Absolute path (if provided)
+    2. User recipes (~/.config/ece4-exp/recipes/)
+    3. Built-in recipes (installed with package)
+    """
     if not recipe_name:
         return None
     if not recipe_name.endswith((".yml", ".yaml")):
@@ -32,12 +51,39 @@ def get_recipe_path(recipe_name):
     if os.path.isabs(recipe_name):
         return recipe_name
 
-    # All recipes are now in recipes/ (flattened)
+    # Check user recipes first
+    user_recipe = USER_RECIPES_DIR / recipe_name
+    if user_recipe.exists():
+        return str(user_recipe)
+
+    # Fall back to built-in recipes
     return os.path.join(RECIPES_DIR, recipe_name)
 
 def get_platform_launchers_path(platform_name):
-    """Get path to platform launchers file (flattened: platforms/<name>.yml)"""
-    return os.path.join(PLATFORMS_DIR, f"{platform_name}.yml")
+    """Get path to platform launchers file.
+
+    Search order:
+    1. User platforms (~/.config/ece4-exp/platforms/)
+    2. Built-in platforms (installed with package)
+
+    Args:
+        platform_name: Platform name (e.g., 'bsc-marenostrum5')
+
+    Returns:
+        Path to platform YAML file
+    """
+    if not platform_name:
+        return None
+    if not platform_name.endswith((".yml", ".yaml")):
+        platform_name += ".yml"
+
+    # Check user platforms first
+    user_platform = USER_PLATFORMS_DIR / platform_name
+    if user_platform.exists():
+        return str(user_platform)
+
+    # Fall back to built-in platforms
+    return os.path.join(PLATFORMS_DIR, platform_name)
 
 def get_ecearth4_platform_path(platform_name):
     """Get path to platform file from ecearth4 repo.

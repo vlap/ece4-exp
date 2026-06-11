@@ -1,193 +1,117 @@
-# ece4-exp: EC-Earth4 Experiment Configuration Tool
+# ece4-exp
 
-**Generate EC-Earth4 configs in 30 seconds instead of 2-4 hours.**
+**Generate EC-Earth4 experiment configs in 30 seconds.**
 
-One command creates production-ready configurations with correct components, calculated node layouts, and validated parameters.
+```bash
+pip install ece4-exp
+ece4-exp setup                    # First-time setup
+ece4-exp generate gcm-sr 1120 a001
+```
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/vlap/ece4-exp.git
-cd ece4-exp
-./setup.sh                    # Install & configure
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid myexp
+# 1. Install
+pip install ece4-exp
+
+# 2. Configure (platform, account)
+ece4-exp setup
+
+# 3. Generate experiment
+ece4-exp generate gcm-sr 1120 a001
 ```
 
-Try the interactive demo: `./QUICK_DEMO.sh`
+That's it! You have `a001_experiment.yml` ready to use with EC-Earth4.
 
-## Pre-Built Recipes
+## Common Recipes
 
-| Recipe | Description | Components | Procs (MN5) |
-|--------|-------------|------------|-------------|
-| `gcm-sr.yml` | Coupled GCM | OIFS + NEMO + XIOS + OASIS | 1120 (10 nodes) |
-| `omip-sr.yml` | Ocean-only | NEMO + XIOS | 224 (2 nodes) |
-| `amip-sr.yml` | Atmosphere-only | OIFS + XIOS + AMIPFR | 896 (8 nodes) |
-| `ccycle-sr.yml` | Carbon cycle | OIFS + NEMO + LPJG + XIOS | 1120+ |
+| Recipe | Description | Typical Procs (MN5) |
+|--------|-------------|---------------------|
+| `gcm-sr` | Coupled atmosphere-ocean GCM | 1120 (10 nodes) |
+| `omip-sr` | Ocean-only forced by reanalysis | 224 (2 nodes) |
+| `amip-sr` | Atmosphere-only prescribed SST | 896 (8 nodes) |
+| `ccycle-sr` | Carbon cycle coupled | 1120+ |
 
-## Basic Usage
+## Commands
 
 ```bash
-./ece4-exp list                              # List recipes
-./ece4-exp generate \                        # Generate config
-  --recipe gcm-sr.yml \
-  --sim-procs 1120 \
-  --expid myexp
-./ece4-exp validate myexp.yml                # Validate
-./ece4-exp save --expid myexp -o my-recipe   # Save as recipe
+# Setup
+ece4-exp setup                     # Configure platform and account
+
+# Generate
+ece4-exp generate RECIPE PROCS EXPID
+ece4-exp generate gcm-sr 1120 a001
+ece4-exp generate omip-sr 224 o001 --walltime 72
+
+# Discovery
+ece4-exp list                      # Show available recipes
+ece4-exp inspect gcm-sr            # View recipe details
+
+# Advanced
+ece4-exp save --expid a001         # Save modifications as new recipe
 ```
 
-**Preview first:** Add `--dry-run`  
-**Batch mode:** Add `--quiet`
+## Customization
 
-## Configuration
-
-### User Defaults (~/.config/ece4-exp/defaults.yml)
-
-Set once, use everywhere:
-```yaml
-platform: bsc-marenostrum5
-account: bsc32
-repo_owner: ec-earth
-repo_branch: v4.1.6
-walltime: 48
-```
-
-Then minimal commands:
+**Override defaults:**
 ```bash
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120
+ece4-exp generate gcm-sr 1120 a001 --platform ecmwf-hpc2020 --account myproj
 ```
 
-Override anytime: `--platform ecmwf-hpc2020 --walltime 72`
-
-### How Configs Merge
-
-Order (later overrides earlier):
-1. Base (EC-Earth4 repo default)
-2. Launcher (platform settings)
-3. Recipe (experiment pattern)
-4. User defaults (~/.config/ece4-exp/defaults.yml)
-5. CLI flags (--expid, --account, etc.)
-
-## Parameters
-
-**Required:**
-- `--recipe <file>` - Experiment recipe
-- `--sim-procs <n>` - Number of processors
-
-**Common:**
-- `--expid <id>` - Experiment ID
-- `--account <name>` - HPC account
-- `--walltime <hours>` - Job walltime
-- `--platform <id>` - HPC platform
-- `-o, --output <file>` - Output filename
-- `--dry-run` - Preview only
-- `--quiet` - No colors (for scripts)
-
-Full list: `./ece4-exp --help`
-
-## Examples
-
-**Basic:**
+**Custom recipes:**
 ```bash
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid exp001
+# Save your modifications
+ece4-exp generate gcm-sr 1120 test
+vim test_experiment.yml            # Make changes
+ece4-exp save --expid test         # Saves to ~/.config/ece4-exp/recipes/test.yml
+
+# Reuse your recipe
+ece4-exp generate test 1120 a002
 ```
 
-**Ocean-only:**
+**Custom platforms:**
 ```bash
-./ece4-exp generate --recipe omip-sr.yml --sim-procs 224 --expid omip001
+cp platforms/bsc-marenostrum5.yml ~/.config/ece4-exp/platforms/my-hpc.yml
+vim ~/.config/ece4-exp/platforms/my-hpc.yml  # Adjust node layouts
+ece4-exp generate gcm-sr 1120 a001 --platform my-hpc
 ```
 
-**Custom recipe:**
-```bash
-# Modify generated config
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 -o test.yml
-vim test.yml
+## What It Does
 
-# Save changes as recipe
-./ece4-exp save --expid test -o my-recipe.yml
+**ece4-exp** creates EC-Earth4 experiment configuration files by combining:
 
-# Reuse
-./ece4-exp generate --recipe my-recipe.yml --sim-procs 1120
-```
+1. **Base config** (from EC-Earth4 repo)
+2. **Platform settings** (HPC-specific paths, modules)
+3. **Recipe** (experiment type: GCM, OMIP, AMIP, etc.)
+4. **Your defaults** (~/.config/ece4-exp/defaults.yml)
+5. **CLI overrides** (command-line flags)
 
-**Batch:**
-```bash
-for id in {001..010}; do
-  ./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 \
-    --expid exp$id --quiet
-done
-```
-
-## Run with EC-Earth4
+The result is a validated YAML file you pass to EC-Earth4's runtime script:
 
 ```bash
 cd /path/to/ecearth4/scripts/runtime
-se user.yml platform.yml experiment.yml scriptlib/main.yml
-```
-
-Where:
-- `user.yml` - Your user config
-- `platform.yml` - Platform config (from EC-Earth4 repo)
-- `experiment.yml` - Generated by ece4-exp
-- `scriptlib/main.yml` - ScriptEngine main
-
-## Installation Options
-
-**Simple (recommended):**
-```bash
-./setup.sh
-```
-
-**pip install:**
-```bash
-pip install -e .              # Editable
-pip install .                 # Regular
-```
-
-**Manual:**
-```bash
-pip install -r requirements.txt
-./ece4-exp init-user
-```
-
-## Features
-
-✅ Pre-tested recipes  
-✅ Auto node layout calculation  
-✅ Config validation  
-✅ Upstream EC-Earth4 sync  
-✅ Custom recipe creation  
-✅ Script-friendly (--quiet)  
-
-## Platform Support
-
-**Current:** BSC MareNostrum 5, ECMWF HPC2020  
-**Add new:** Create `platforms/<name>.yml` with launcher templates (~50 lines)
-
-## Autosubmit Compatibility
-
-```bash
-./ece4-exp generate --expdef expdef_ID.yml --jobs jobs_ID.yml
+se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 ```
 
 ## Documentation
 
-- **[DEMO.md](DEMO.md)** - Detailed walkthrough
-- **[QUICK_DEMO.sh](QUICK_DEMO.sh)** - 3-minute interactive demo
-- **[docs/CHANGES.md](docs/CHANGES.md)** - Changelog
-- **[docs/presentation/](docs/presentation/)** - Slides
+- **Full guide:** https://ece4-exp.readthedocs.io
+- **Help:** `ece4-exp --help` or `ece4-exp generate --help`
 
-## Requirements
+## Tab Completion (Optional)
 
-- Python 3.8+
-- ruamel.yaml >= 0.17.0
-- jsonschema >= 4.0.0
-- pygments >= 2.10.0 (optional)
+```bash
+# Bash
+echo 'eval "$(ece4-exp completion bash)"' >> ~/.bashrc
 
-## License & Support
+# Zsh
+echo 'eval "$(ece4-exp completion zsh)"' >> ~/.zshrc
+```
 
-**License:** MIT - See [LICENSE](LICENSE)
+Now: `ece4-exp ge<TAB>` → `ece4-exp generate`
 
-**Support:**
-- vladimir.lapin@bsc.es
-- https://github.com/vlap/ece4-exp/issues
+## Support
+
+- **Issues:** https://github.com/vlap/ece4-exp/issues
+- **Contact:** vladimir.lapin@bsc.es
+- **License:** MIT

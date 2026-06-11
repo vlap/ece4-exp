@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ece4-exp"
-version = "1.0.0"
+version = "1.1.0"
 authors = [
   { name="Vladimir Lapin", email="vladimir.lapin@bsc.es" },
 ]
@@ -26,7 +26,14 @@ dependencies = [
 [project.optional-dependencies]
 highlight = ["pygments>=2.10.0"]
 
+[project.scripts]
+ece4-exp = "ece4_exp.cli:main"
+
 [project.urls]
 "Homepage" = "https://github.com/vlap/ece4-exp"
 "Bug Tracker" = "https://github.com/vlap/ece4-exp/issues"
 "Documentation" = "https://github.com/vlap/ece4-exp/blob/main/README.md"
+
+[tool.setuptools]
+packages = ["ece4_exp"]
+include-package-data = true

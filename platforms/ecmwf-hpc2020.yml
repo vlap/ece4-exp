@@ -27,14 +27,3 @@
           - { nodes: 1,                 oifs: 24, nemo: 30, rnfm: 1, lpjg: 1 }
           - { nodes: "{{ nodes - 1 }}", oifs: 24, nemo: 30, xios: 1, lpjg: 1 }
 
-    slurm-wrapper-hostfile:
-      CUSTOM:
-          oifs:
-            ntasks: "%EXPERIMENT.CONFIGURATION.OIFS.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.OIFS.PROC_PER_NODE%"
-          nemo:
-            ntasks: "%EXPERIMENT.CONFIGURATION.NEMO.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.NEMO.PROC_PER_NODE%"
-          xios:
-            ntasks: "%EXPERIMENT.CONFIGURATION.XIOS.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.XIOS.PROC_PER_NODE%"

@@ -1,0 +1,414 @@
+#!/usr/bin/env python3
+"""
+CLI entry point for ece4-exp.
+
+This replaces the bash wrapper with a proper Python console_scripts entry point.
+"""
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+from . import paths
+from .yaml_util import log_info, log_warn, log_error, COLOR_CYAN, COLOR_GREEN, COLOR_NC
+
+
+def cmd_list(args):
+    """List available recipes."""
+    print(f"{COLOR_CYAN}Available Recipes:{COLOR_NC}\n")
+
+    # User recipes (show first - they override built-in)
+    user_recipes = []
+    if paths.USER_RECIPES_DIR.exists():
+        user_recipes = sorted(paths.USER_RECIPES_DIR.glob("*.yml")) + sorted(paths.USER_RECIPES_DIR.glob("*.yaml"))
+        if user_recipes:
+            print(f"{COLOR_GREEN}Your Recipes:{COLOR_NC}")
+            for recipe in user_recipes:
+                print(f"  - {recipe.name}")
+            print()
+
+    # Built-in recipes
+    print("Built-in Recipes:")
+    if paths.RECIPES_DIR.exists():
+        recipes = sorted(paths.RECIPES_DIR.glob("*.yml")) + sorted(paths.RECIPES_DIR.glob("*.yaml"))
+        for recipe in recipes:
+            print(f"  - {recipe.name}")
+    else:
+        log_warn(f"Recipes directory not found: {paths.RECIPES_DIR}")
+
+    # Locations
+    print(f"\n{COLOR_GREEN}Locations:{COLOR_NC}")
+    print(f"  User recipes:     {paths.USER_RECIPES_DIR}")
+    print(f"  Built-in recipes: {paths.RECIPES_DIR}")
+    print(f"  User platforms:   {paths.USER_PLATFORMS_DIR}")
+    print(f"  Built-in platforms: {paths.PLATFORMS_DIR}")
+
+    print(f"\n{COLOR_GREEN}Usage:{COLOR_NC}")
+    print(f"  ece4-exp inspect <recipe.yml> - View recipe contents")
+    print(f"  ece4-exp save --expid <id>    - Save your modifications as recipe")
+    print(f"  cp recipe.yml {paths.USER_RECIPES_DIR}/  - Add external recipe")
+    print(f"  cp platform.yml {paths.USER_PLATFORMS_DIR}/  - Add custom platform")
+    print()
+
+
+def cmd_completion(args):
+    """Generate shell completion script."""
+    from .completion import generate_completion
+
+    try:
+        script = generate_completion(args.shell)
+        print(script)
+    except ValueError as e:
+        log_error(str(e))
+        sys.exit(1)
+
+
+def cmd_info(args):
+    """Show current configuration info."""
+    from .yaml_util import set_quiet_mode
+
+    if args.quiet:
+        set_quiet_mode(True)
+
+    # Get EXPID from environment or guess
+    expid = os.environ.get("EXPID", "unknown")
+    if expid == "unknown":
+        # Try to guess from path structure
+        cwd_parts = Path.cwd().parts
+        if len(cwd_parts) >= 3:
+            guess = cwd_parts[-3]
+            if len(guess) == 4 and guess.isalnum():
+                expid = guess
+
+    conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
+    expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
+    jobs_file = Path(conf_path) / f"jobs_{expid}.yml"
+
+    # Import and run generate with --info flag
+    import importlib
+    gec = importlib.import_module("ece4_exp.generate-experiment-config")
+
+    sys.argv = [
+        "ece4-exp",
+        "--expdef", str(expdef_file),
+        "--jobs", str(jobs_file),
+        "--info"
+    ]
+
+    if args.quiet:
+        sys.argv.append("--quiet")
+
+    gec.main()
+
+
+def cmd_setup(args):
+    """Initialize user configuration."""
+    log_info("Setting up ece4-exp configuration in ~/.config/ece4-exp")
+
+    from . import init_config
+    init_config.main()
+
+
+def cmd_generate(args):
+    """Generate experiment configuration."""
+    import re
+    from .yaml_util import set_quiet_mode
+
+    # Merge positional and flag arguments (backward compat)
+    recipe = args.recipe or getattr(args, 'recipe_flag', None)
+    sim_procs = args.procs or getattr(args, 'sim_procs_flag', None)
+    expid = args.expid or getattr(args, 'expid_flag', None)
+
+    # Normalize recipe name (allow "gcm-sr" or "gcm-sr.yml")
+    if recipe and not recipe.endswith(('.yml', '.yaml')):
+        recipe = f"{recipe}.yml"
+
+    # Validate expid format if provided (EC-Earth4 standard: exactly 4 alphanumeric characters)
+    if expid:
+        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters")
+            log_info("Examples: a001, test, exp1, gcm4")
+            sys.exit(1)
+
+    # Better error messages with suggestions
+    if not recipe or not sim_procs or not expid:
+        missing = []
+        if not recipe: missing.append("RECIPE")
+        if not sim_procs: missing.append("PROCS")
+        if not expid: missing.append("EXPID")
+
+        log_error(f"Missing required arguments: {', '.join(missing)}")
+        print(f"\n{COLOR_GREEN}Usage:{COLOR_NC}")
+        print(f"  ece4-exp generate RECIPE PROCS EXPID")
+        print(f"\n{COLOR_GREEN}Example:{COLOR_NC}")
+        print(f"  ece4-exp generate gcm-sr 1120 a001")
+        print(f"\n{COLOR_GREEN}First time?{COLOR_NC}")
+        print(f"  Run 'ece4-exp setup' to configure defaults")
+        print(f"  Run 'ece4-exp list' to see available recipes")
+        sys.exit(1)
+
+    if args.quiet:
+        set_quiet_mode(True)
+        os.environ["COLOR_NC"] = ""
+        os.environ["COLOR_GREEN"] = ""
+        os.environ["COLOR_CYAN"] = ""
+        os.environ["COLOR_YELLOW"] = ""
+        os.environ["COLOR_RED"] = ""
+
+    # Build sys.argv for the generate module
+    import importlib
+    gec = importlib.import_module("ece4_exp.generate-experiment-config")
+    conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
+
+    sys.argv = ["ece4-exp"]
+
+    # Add autosubmit files if they exist (backward compatibility)
+    expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
+    jobs_file = Path(conf_path) / f"jobs_{expid}.yml"
+
+    if expdef_file.exists() and jobs_file.exists():
+        sys.argv.extend(["--expdef", str(expdef_file)])
+        sys.argv.extend(["--jobs", str(jobs_file)])
+
+    # Forward all args to generate module
+    if recipe:
+        sys.argv.extend(["--recipe", recipe])
+    if sim_procs:
+        sys.argv.extend(["--sim-procs", str(sim_procs)])
+    if expid:
+        sys.argv.extend(["--expid", expid])
+    if args.platform:
+        sys.argv.extend(["--platform", args.platform])
+    if args.launcher:
+        sys.argv.extend(["--launcher", args.launcher])
+    if args.kind:
+        sys.argv.extend(["--kind", args.kind])
+    if args.account:
+        sys.argv.extend(["--account", args.account])
+    if args.walltime:
+        sys.argv.extend(["--walltime", str(args.walltime)])
+    if args.description:
+        sys.argv.extend(["--description", args.description])
+    if args.repo_owner:
+        sys.argv.extend(["--repo-owner", args.repo_owner])
+    if args.repo_branch:
+        sys.argv.extend(["--repo-branch", args.repo_branch])
+    if args.output:
+        sys.argv.extend(["--output", args.output])
+    if args.dry_run:
+        sys.argv.append("--dry-run")
+    if args.quiet:
+        sys.argv.append("--quiet")
+
+    gec.main()
+
+
+def cmd_inspect(args):
+    """View recipe contents."""
+    from .yaml_util import load_yaml_config
+
+    recipe_name = args.recipe
+    recipe_path = paths.get_recipe_path(recipe_name)
+
+    if not recipe_path or not Path(recipe_path).exists():
+        log_error(f"Recipe not found: {recipe_name}")
+        print(f"\n{COLOR_GREEN}Tip:{COLOR_NC} Use 'ece4-exp list' to see available recipes")
+        sys.exit(1)
+
+    print(f"{COLOR_CYAN}Recipe:{COLOR_NC} {recipe_name}")
+    print(f"{COLOR_CYAN}Location:{COLOR_NC} {recipe_path}\n")
+
+    # Display file contents
+    with open(recipe_path, 'r') as f:
+        print(f.read())
+
+
+def cmd_validate(args):
+    """Validate experiment configuration."""
+    import importlib
+    vec = importlib.import_module("ece4_exp.validate-experiment-config")
+
+    config_file = args.config_file
+    if not config_file:
+        # Default to EXPID_experiment.yml
+        expid = os.environ.get("EXPID", "unknown")
+        config_file = f"{expid}_experiment.yml"
+
+    if not Path(config_file).exists():
+        log_error(f"Configuration file not found: {config_file}")
+        sys.exit(1)
+
+    sys.argv = ["ece4-exp", config_file]
+    vec.main()
+
+
+def cmd_save(args):
+    """Save changes as a recipe."""
+    import re
+    import importlib
+    srd = importlib.import_module("ece4_exp.save_recipe_from_diff")
+
+    # Get EXPID
+    expid = args.expid if args.expid else os.environ.get("EXPID", "unknown")
+
+    # Validate expid format if provided (EC-Earth4 standard: exactly 4 alphanumeric characters)
+    if expid and expid != "unknown":
+        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
+            log_info("Examples: a001, test, exp1, gcm4")
+            sys.exit(1)
+    conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
+    expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
+
+    # Output file - save to user recipes by default
+    if args.output:
+        # User specified output - respect it
+        output_file = args.output
+    else:
+        # Default: save to user recipes directory
+        paths.USER_RECIPES_DIR.mkdir(parents=True, exist_ok=True)
+        output_file = str(paths.USER_RECIPES_DIR / f"{expid}.yml")
+
+    log_info(f"Saving recipe: {COLOR_CYAN}{output_file}{COLOR_NC} (Expid: {expid})")
+
+    sys.argv = ["ece4-exp", "--expid", expid]
+
+    if expdef_file.exists():
+        sys.argv.extend(["--expdef", str(expdef_file)])
+
+    if args.recipe:
+        sys.argv.extend(["--recipe", args.recipe])
+
+    sys.argv.extend(["--output", output_file])
+
+    srd.main()
+
+
+def main():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        prog="ece4-exp",
+        description="EC-Earth4 experiment configuration tool",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  ece4-exp setup                         # First-time configuration
+  ece4-exp list                          # Show available recipes
+  ece4-exp generate gcm-sr 1120 a001     # Generate experiment config
+  ece4-exp inspect gcm-sr                # View recipe details
+
+Getting Started:
+  1. Run 'ece4-exp setup' to configure platform and account
+  2. Use 'ece4-exp list' to see available experiment recipes
+  3. Generate configs with 'ece4-exp generate RECIPE PROCS EXPID'
+
+For detailed help: ece4-exp <command> --help
+Documentation: https://ece4-exp.readthedocs.io
+        """
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # --- list ---
+    parser_list = subparsers.add_parser("list", help="List recipes and platforms")
+    parser_list.set_defaults(func=cmd_list)
+
+    # --- completion (hidden, documented in README) ---
+    parser_completion = subparsers.add_parser("completion", help=argparse.SUPPRESS)
+    parser_completion.add_argument("shell", choices=["bash", "zsh"], help="Shell type (bash or zsh)")
+    parser_completion.set_defaults(func=cmd_completion)
+
+    # --- setup ---
+    parser_setup = subparsers.add_parser("setup", help="Configure platform and account defaults")
+    parser_setup.set_defaults(func=cmd_setup)
+
+    # Backward compatibility
+    parser_init = subparsers.add_parser("init-user", help=argparse.SUPPRESS)
+    parser_init.set_defaults(func=cmd_setup)
+
+    # --- generate ---
+    parser_gen = subparsers.add_parser("generate",
+        help="Generate experiment configuration",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  ece4-exp generate gcm-sr 1120 a001              # Coupled GCM, 10 nodes, ID=a001
+  ece4-exp generate omip-sr 224 o001              # Ocean-only, 2 nodes
+  ece4-exp generate amip-sr 896 atm1 --walltime 72
+
+Typical processor counts for MareNostrum5:
+  gcm-sr:    1120 (10 nodes), 2240 (20 nodes)
+  omip-sr:   224 (2 nodes), 448 (4 nodes)
+  amip-sr:   896 (8 nodes), 1792 (16 nodes)
+  ccycle-sr: 1120+ (depends on configuration)
+
+First time? Run 'ece4-exp setup' to configure platform and account.
+        """)
+
+    # Positional arguments (NEW)
+    parser_gen.add_argument("recipe", nargs="?", help="Recipe name (e.g., gcm-sr, gcm-sr.yml)")
+    parser_gen.add_argument("procs", nargs="?", type=int, help="Number of processors")
+    parser_gen.add_argument("expid", nargs="?", help="Experiment ID (4 characters)")
+
+    # Also support old --flag style for backward compatibility
+    parser_gen.add_argument("--recipe", dest="recipe_flag", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--sim-procs", type=int, dest="sim_procs_flag", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--expid", dest="expid_flag", help=argparse.SUPPRESS)
+
+    # Common options
+    parser_gen.add_argument("--platform", help="HPC platform (overrides default)")
+    parser_gen.add_argument("--account", help="HPC account (overrides default)")
+    parser_gen.add_argument("--walltime", type=int, help="Walltime in hours")
+    parser_gen.add_argument("-o", "--output", help="Output filename")
+    parser_gen.add_argument("--dry-run", action="store_true", help="Preview without writing")
+    parser_gen.add_argument("--quiet", action="store_true", help="Suppress colored output")
+
+    # Advanced options (hidden from default help)
+    parser_gen.add_argument("--launcher", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--kind", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--description", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--repo-owner", dest="repo_owner", help=argparse.SUPPRESS)
+    parser_gen.add_argument("--repo-branch", dest="repo_branch", help=argparse.SUPPRESS)
+
+    parser_gen.set_defaults(func=cmd_generate)
+
+    # --- inspect ---
+    parser_inspect = subparsers.add_parser("inspect", help="View recipe contents")
+    parser_inspect.add_argument("recipe", help="Recipe name (e.g., gcm-sr.yml)")
+    parser_inspect.set_defaults(func=cmd_inspect)
+
+    # --- validate (hidden, auto-runs during generate) ---
+    parser_val = subparsers.add_parser("validate", help=argparse.SUPPRESS)
+    parser_val.add_argument("config_file", nargs="?", help="Path to configuration file")
+    parser_val.set_defaults(func=cmd_validate)
+
+    # --- save ---
+    parser_save = subparsers.add_parser("save", help="Save changes as a recipe")
+    parser_save.add_argument("--expid", help="Experiment ID (4 alphanumeric characters)")
+    parser_save.add_argument("--recipe", help="Current user recipe name")
+    parser_save.add_argument("-o", "--output", help="Recipe file name")
+    parser_save.set_defaults(func=cmd_save)
+
+    # Parse args
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    # Run command
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
+        sys.exit(130)
+    except Exception as e:
+        log_error(f"Command failed: {e}")
+        if "--debug" in sys.argv or os.environ.get("DEBUG"):
+            raise
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

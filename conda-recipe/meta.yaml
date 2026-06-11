@@ -1,0 +1,69 @@
+{% set name = "ece4-exp" %}
+{% set version = "1.0.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  # Once published to PyPI, use this:
+  # url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/ece4_exp-{{ version }}.tar.gz
+  # sha256: REPLACE_WITH_PYPI_SHA256
+
+  # For now, use local tarball
+  path: ../dist/ece4_exp-{{ version }}.tar.gz
+  sha256: c3ca0f522365cad33b79fe5fb7707bb1fb720398d30bd1bdaa1900561ba50c84
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv
+  noarch: python
+  entry_points:
+    - ece4-exp = ece4_exp.cli:main
+
+requirements:
+  host:
+    - python >=3.8
+    - pip
+    - setuptools >=61.0
+  run:
+    - python >=3.8
+    - ruamel.yaml >=0.17.0
+    - jsonschema >=4.0.0
+    - pygments >=2.10.0
+
+test:
+  imports:
+    - ece4_exp
+    - ece4_exp.cli
+  commands:
+    - ece4-exp --help
+    - ece4-exp list
+  requires:
+    - pip
+
+about:
+  home: https://github.com/vlap/ece4-exp
+  license: MIT
+  license_file: LICENSE
+  summary: EC-Earth4 experiment configuration tool
+  description: |
+    Generate EC-Earth4 configs in 30 seconds instead of 2-4 hours.
+    One command creates production-ready configurations with correct
+    components, calculated node layouts, and validated parameters.
+
+    Features:
+    - Pre-tested recipes for common experiment types
+    - Automatic node layout calculation
+    - Configuration validation
+    - Upstream EC-Earth4 repository synchronization
+    - Custom recipe creation
+    - Script-friendly with quiet mode
+    - Cross-platform (Linux, macOS, Windows)
+
+  doc_url: https://github.com/vlap/ece4-exp/blob/main/README.md
+  dev_url: https://github.com/vlap/ece4-exp
+
+extra:
+  recipe-maintainers:
+    - vlap

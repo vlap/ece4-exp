@@ -82,7 +82,7 @@ style: |
 **One command generates production-ready configs:**
 
 ```bash
-./ece4-exp generate \
+ece4-exp generate \
   --recipe gcm-sr.yml \
   --sim-procs 1120 \
   --expid my-experiment
@@ -142,14 +142,14 @@ Base config (EC-Earth4 repo)
 
 **Coupled atmosphere-ocean (10 nodes):**
 ```bash
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120
+ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120
 # → OIFS + NEMO + XIOS + OASIS + RNFM
 # → TL255L91 + eORCA1L75
 ```
 
 **Ocean-only (2 nodes):**
 ```bash
-./ece4-exp generate --recipe omip-sr.yml --sim-procs 224
+ece4-exp generate --recipe omip-sr.yml --sim-procs 224
 # → NEMO + XIOS (no atmosphere)
 # → Forced by ERA5
 ```
@@ -162,14 +162,14 @@ Different science, different resources - **same simple command**.
 
 **One-time installation (2 minutes):**
 ```bash
-git clone https://github.com/vlap/ece4-exp.git
-cd ece4-exp
-./setup.sh
+pip install ece4-exp
+
+
 ```
 
 **Configure your defaults (1 minute):**
 ```bash
-./ece4-exp init-user
+ece4-exp init-user
 # Edit ~/.config/ece4-exp/defaults.yml
 ```
 
@@ -177,7 +177,7 @@ Set your platform, account, scratch path **once**.
 
 **Then just:**
 ```bash
-./ece4-exp generate --recipe <type> --sim-procs <n>
+ece4-exp generate --recipe <type> --sim-procs <n>
 ```
 
 Override when needed: `--platform ecmwf-hpc2020`
@@ -192,20 +192,20 @@ Override when needed: `--platform ecmwf-hpc2020`
 vim myexp.yml
 
 # Save as new recipe
-./ece4-exp save --expid myexp -o my-recipe.yml
+ece4-exp save --expid myexp -o my-recipe.yml
 
 # Reuse it
-./ece4-exp generate --recipe my-recipe.yml --sim-procs 1120
+ece4-exp generate --recipe my-recipe.yml --sim-procs 1120
 ```
 
 **Scripting support:**
 ```bash
 # Quiet mode (no colors, for scripts)
-./ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --quiet
+ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --quiet
 
 # Batch generation
 for exp in {001..010}; do
-  ./ece4-exp generate --recipe gcm-sr.yml --expid exp$exp
+  ece4-exp generate --recipe gcm-sr.yml --expid exp$exp
 done
 ```
 
@@ -239,15 +239,15 @@ Small file (~50 lines), platform ready to use.
 **Try it now:**
 
 ```bash
-git clone https://github.com/vlap/ece4-exp.git
-cd ece4-exp
+pip install ece4-exp
+
 ./QUICK_DEMO.sh  # Interactive 3-minute demo
 ```
 
 **Documentation:**
 - `README.md` - Complete guide
 - `DEMO.md` - Walkthrough with examples
-- `./ece4-exp --help` - Command reference
+- `ece4-exp --help` - Command reference
 
 **Compatible with:**
 - ✅ Manual EC-Earth4 workflows (ScriptEngine)

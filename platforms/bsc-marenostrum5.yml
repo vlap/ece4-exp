@@ -7,20 +7,36 @@
         omp_stacksize: "64M"
 
       AMIP-SR:
+        slurm:
+          sbatch:
+            opts:
+              time: "00:30:00"  # Default for testing
         groups:
           - { nodes: 1,      amipfr: 1, oifs: 27, xios: 1 }
           - { nodes: "{{ nodes - 1 }}", oifs: 27, xios: 1 }
 
       OMIP-SR:
+        slurm:
+          sbatch:
+            opts:
+              time: "00:30:00"  # Default for testing
         groups:
           - { nodes: "{{ nodes }}", xios: 1, nemo: 111 }
 
       CPLD-SR:
+        slurm:
+          sbatch:
+            opts:
+              time: "01:00:00"  # Default for testing
         groups:
           - { nodes: 1,                 oifs: 25, nemo: 9, xios: 1, rnfm: 1 }
           - { nodes: "{{ nodes - 1 }}", oifs: 25, nemo: 10, xios: 1 }
 
       CCCL-SR:
+        slurm:
+          sbatch:
+            opts:
+              time: "01:30:00"  # Default for testing (carbon cycle with LPJG)
         groups:
           - { nodes: 1,                 oifs: 21, nemo: 26, rnfm: 1, lpjg: 1 }
           - { nodes: "{{ nodes - 1 }}", oifs: 21, nemo: 26, xios: 1, lpjg: 1 }
@@ -40,14 +56,3 @@
             - { nodes: "{{ nodes - 1 }}", oifs: 14 } #, oifs: 13, xios: 1 }
             - { nodes: 1, xios: 2, amipfr: 1 } 
 
-    slurm-wrapper-hostfile:
-      CUSTOM:
-          oifs:
-            ntasks: "%EXPERIMENT.CONFIGURATION.OIFS.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.OIFS.PROC_PER_NODE%"
-          nemo:
-            ntasks: "%EXPERIMENT.CONFIGURATION.NEMO.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.NEMO.PROC_PER_NODE%"
-          xios:
-            ntasks: "%EXPERIMENT.CONFIGURATION.XIOS.NPROC%"
-            ntasks_per_node: "%EXPERIMENT.CONFIGURATION.XIOS.PROC_PER_NODE%"

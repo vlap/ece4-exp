@@ -59,7 +59,7 @@ def apply_node_eval(struct, nodes):
     return struct
 
 def _run_git(args, cwd=None):
-    """Execute git command safely."""
+    """Execute git command safely with user-friendly error messages."""
     result = subprocess.run(
         ["git"] + args,
         cwd=cwd,
@@ -70,10 +70,39 @@ def _run_git(args, cwd=None):
     )
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Git command failed: git {' '.join(args)}\n"
-            f"{result.stderr.strip()}"
-        )
+        stderr = result.stderr.strip()
+
+        # Provide user-friendly error messages for common access issues
+        if "couldn't find remote ref" in stderr:
+            branch_or_tag = args[-1] if args else "unknown"
+            raise RuntimeError(
+                f"Branch or tag '{branch_or_tag}' not found.\n"
+                f"Check the branch/tag name is correct and you have access to it.\n"
+                f"Use --repo-branch to specify a different branch (e.g., main, v4.1.6)"
+            )
+        elif "not found" in stderr and "repository" in stderr:
+            raise RuntimeError(
+                f"Cannot access EC-Earth4 repository.\n"
+                f"Possible reasons:\n"
+                f"  - Repository owner doesn't exist (check --repo-owner)\n"
+                f"  - Repository is private and you don't have access\n"
+                f"  - Network connection issue\n"
+                f"Contact your EC-Earth administrator if you need access."
+            )
+        elif "permission" in stderr.lower():
+            raise RuntimeError(
+                f"Permission denied when accessing repository.\n"
+                f"You may need to:\n"
+                f"  - Request access to this repository\n"
+                f"  - Set up SSH keys or authentication\n"
+                f"  - Contact the repository administrator"
+            )
+        else:
+            # Generic error with full git output
+            raise RuntimeError(
+                f"Git command failed: git {' '.join(args)}\n"
+                f"{stderr}"
+            )
 
     return result.stdout.strip()
 
@@ -82,29 +111,56 @@ def clone_ece4_yml_repo(
     repo_owner: str,
     repo_branch: str,
     *sparse_files: str,
-    tmpd: str = "ece4_yml_repo",
+    tmpd: str = None,
 ) -> dict:
     """
-    Synchronizes a repository using sparse checkout with incremental caching.
-    Reuses the existing directory if the remote matches, performing a fast fetch instead of a clone.
+    Synchronizes EC-Earth4 repository using sparse checkout with smart caching.
+
+    Uses ~/.config/ece4-exp/cache/ecearth4/ for persistent, shared cache.
+    Intelligently switches repo_owner/branch without re-cloning.
+
+    Args:
+        repo_owner: Repository owner (e.g., 'ec-earth')
+        repo_branch: Branch/tag to checkout (e.g., 'v4.1.6')
+        sparse_files: Files to include in sparse checkout
+        tmpd: Override cache location (for testing)
+
+    Returns:
+        dict with 'is_cached' (bool), 'commit' (str), 'switched_remote' (bool)
     """
     if not repo_owner or not repo_branch:
         raise ValueError("repo_owner and repo_branch must be provided")
 
     repo_url = f"https://git.smhi.se/{repo_owner}/ecearth4.git"
-    repo_path = Path(tmpd)
-    is_cached = False
 
-    # --- Cache Detection ---
-    if repo_path.exists():
+    # Use user cache directory (persistent across reinstalls)
+    if tmpd is None:
+        repo_path = paths.ECE4_CACHE_REPO
+    else:
+        repo_path = Path(tmpd)
+
+    is_cached = False
+    switched_remote = False
+
+    # --- Cache Detection & Remote Handling ---
+    if repo_path.exists() and (repo_path / ".git").exists():
         try:
             current_remote = _run_git(["remote", "get-url", "origin"], cwd=repo_path)
+
             if current_remote == repo_url:
+                # Same remote - use cached repo
                 is_cached = True
             else:
-                shutil.rmtree(repo_path)
-        except Exception:
+                # Different remote - update URL instead of deleting
+                log_info(f"Switching repo from {current_remote} to {repo_url}")
+                _run_git(["remote", "set-url", "origin", repo_url], cwd=repo_path)
+                switched_remote = True
+                is_cached = True  # Still using cached git dir
+        except Exception as e:
+            # Corrupted repo - remove and start fresh
+            log_warn(f"Cached repo corrupted, re-initializing: {e}")
             shutil.rmtree(repo_path)
+            is_cached = False
 
     # --- Initialization (if not cached) ---
     if not is_cached:
@@ -112,24 +168,25 @@ def clone_ece4_yml_repo(
         _run_git(["init"], cwd=repo_path)
         _run_git(["remote", "add", "origin", repo_url], cwd=repo_path)
         _run_git(["sparse-checkout", "init", "--no-cone"], cwd=repo_path)
-    
+
     # Always update sparse-checkout settings to match requested files
     if sparse_files:
         _run_git(["sparse-checkout", "set"] + list(sparse_files), cwd=repo_path)
 
     # --- Fast Fetch & Update ---
-    # We fetch with depth 1 to keep it light
+    # Fetch with depth 1 to keep it lightweight
     _run_git(["fetch", "--depth", "1", "origin", repo_branch], cwd=repo_path)
     _run_git(["checkout", "FETCH_HEAD"], cwd=repo_path)
-    
+
     commit = _run_git(["rev-parse", "--short", "HEAD"], cwd=repo_path)
 
     return {
         "is_cached": is_cached,
         "commit": commit,
+        "switched_remote": switched_remote,
     }
 
-def build_cli_overrides(expid, account, walltime, description):
+def build_cli_overrides(expid, account, walltime, description, qos=None):
     """Build configuration overrides from CLI parameters.
 
     Note: scratch is not a parameter - it should come from user's config file,
@@ -147,7 +204,7 @@ def build_cli_overrides(expid, account, walltime, description):
             overrides["experiment"] = {}
         overrides["experiment"]["description"] = description
 
-    if account or walltime:
+    if account or walltime or qos:
         if "job" not in overrides:
             overrides["job"] = {}
         if "slurm" not in overrides["job"]:
@@ -159,6 +216,8 @@ def build_cli_overrides(expid, account, walltime, description):
 
         if account:
             overrides["job"]["slurm"]["sbatch"]["opts"]["account"] = account
+        if qos:
+            overrides["job"]["slurm"]["sbatch"]["opts"]["qos"] = qos
         if walltime:
             # Convert hours to HH:MM:SS format
             hours = int(walltime)
@@ -188,7 +247,7 @@ def select_launcher_fragment(launcher, launcher_kind, launchers_dict):
     return merged
 
 def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=None,
-                   expid=None, account=None, walltime=None, description=None,
+                   expid=None, account=None, walltime=None, description=None, qos=None,
                    output="experiment.yml", dry_run=False):
     """Generate an experiment configuration by merging multiple configuration fragments.
 
@@ -209,7 +268,7 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
     # We only need platform_config as a fallback source for cpus_per_node if platform file doesn't have ppn.
     platform_config = {}
 
-    # Load platform launchers (local ece4-recipe specific)
+    # Load platform launchers (local ece4-exp specific)
     launchers_dict = load_yaml_config(paths.get_platform_launchers_path(platform))
 
     # Load user recipe if specified
@@ -265,7 +324,7 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
         apply_node_eval(launcher_fragment, nodes)
 
     # Build CLI overrides (NEW: explicit user parameters)
-    cli_overrides = build_cli_overrides(expid, account, walltime, description)
+    cli_overrides = build_cli_overrides(expid, account, walltime, description, qos)
 
     # NOTE: We do NOT merge platform_config into the experiment config!
     # The platform file is loaded separately by the workflow as:
@@ -288,7 +347,7 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
     save_yaml_config(output, merged)
 
 def load_user_defaults():
-    """Load user defaults from ~/.config/ece4-recipe/defaults.yml if it exists."""
+    """Load user defaults from ~/.config/ece4-exp/defaults.yml if it exists."""
     if paths.USER_DEFAULTS_FILE.exists():
         try:
             return load_yaml(str(paths.USER_DEFAULTS_FILE))
@@ -299,7 +358,7 @@ def load_user_defaults():
 def main():
     parser = argparse.ArgumentParser(
         description="Generate EC-Earth4 experiment config.",
-        epilog="Parameters are resolved in this order: CLI args > user config (~/.config/ece4-recipe/defaults.yml) > autosubmit files (if provided)"
+        epilog="Parameters are resolved in this order: CLI args > user config (~/.config/ece4-exp/defaults.yml) > autosubmit files (if provided)"
     )
     # Autosubmit compatibility
     parser.add_argument("--expdef", help="Path to expdef_EXPID.yml file (autosubmit mode)")
@@ -315,13 +374,13 @@ def main():
     parser.add_argument("--repo-branch", help="ECE4 repository branch")
 
     # User-specific parameters (NEW)
-    parser.add_argument("--expid", help="Experiment ID")
+    parser.add_argument("--expid", help="Experiment ID (4 alphanumeric characters, e.g., a001, test)")
     parser.add_argument("--account", help="HPC account/project")
     parser.add_argument("--walltime", help="Walltime in hours (e.g. 48)")
     parser.add_argument("--description", help="Experiment description")
 
     # Output control
-    parser.add_argument("-o", "--output", default="experiment.yml", help="Output YAML file name")
+    parser.add_argument("-o", "--output", default=None, help="Output YAML file name (default: {expid}_experiment.yml)")
     parser.add_argument("--dry-run", action="store_true", help="Print YAML instead of writing to file")
     parser.add_argument("--quiet", action="store_true", help="Suppress colored output and prompts (for scripting)")
     parser.add_argument("--info", action="store_true", help="Only print extracted settings and exit")
@@ -331,7 +390,7 @@ def main():
     if args.quiet:
         set_quiet_mode(True)
 
-    # Load user defaults from ~/.config/ece4-recipe/defaults.yml
+    # Load user defaults from ~/.config/ece4-exp/defaults.yml
     user_defaults = load_user_defaults()
 
     # Load autosubmit files if provided (backward compatibility)
@@ -355,8 +414,16 @@ def main():
     # User-specific parameters (NEW)
     expid = args.expid or user_defaults.get("expid")
     account = args.account or user_defaults.get("account")
+    qos = user_defaults.get("qos")  # qos only from user defaults, not CLI
     walltime = args.walltime or user_defaults.get("walltime")
     description = args.description or user_defaults.get("description")
+
+    # Validate expid format (EC-Earth4 standard: exactly 4 alphanumeric characters)
+    if expid:
+        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
+            log_info("Examples: a001, test, exp1, gcm4")
+            sys.exit(1)
 
     if user_recipe and not user_recipe.endswith((".yml", ".yaml")):
         user_recipe += ".yml"
@@ -374,7 +441,7 @@ def main():
         log_error(f"Missing required parameters: {', '.join(missing)}")
         log_info("Provide them via:")
         log_info("  1. CLI flags (--platform, --launcher, etc.)")
-        log_info("  2. User config: ~/.config/ece4-recipe/defaults.yml")
+        log_info("  2. User config: ~/.config/ece4-exp/defaults.yml")
         log_info("  3. Autosubmit files: --expdef, --jobs (if using autosubmit)")
         sys.exit(1)
 
@@ -408,15 +475,30 @@ def main():
             repo_owner,
             repo_branch,
             "scripts/runtime/experiment-config-example.yml",
-            # Note: Platform files are loaded separately by the workflow, we only need the base config
-            tmpd=os.path.join(paths.EXTERNAL_DIR, "ece4_yml_repo"),
+            # Uses user cache: ~/.config/ece4-exp/cache/ecearth4/
+            # tmpd parameter removed - now uses smart default from paths.ECE4_CACHE_REPO
         )
-        status = "(cached)" if result["is_cached"] else "(fresh clone)"
+
+        # Build status message
+        if result.get("switched_remote"):
+            status = "(switched repo)"
+        elif result["is_cached"]:
+            status = "(cached)"
+        else:
+            status = "(initialized)"
+
         log_info(f"Successfully synced {repo_branch} at {result['commit']} {status}.")
 
     except Exception as e:
         log_error(f"Failed to sync ECE4 repo:\n{e}")
         sys.exit(1)
+
+    # Auto-generate output filename if not specified
+    output_file = args.output
+    if not output_file and expid:
+        output_file = f"{expid}_experiment.yml"
+    elif not output_file:
+        output_file = "experiment.yml"
 
     generate_config(
         platform=hpcarch,
@@ -428,20 +510,21 @@ def main():
         account=account,
         walltime=walltime,
         description=description,
-        output=args.output,
+        qos=qos,
+        output=output_file,
         dry_run=args.dry_run,
     )
 
     if not args.dry_run:
-        shutil.copyfile(args.output, os.path.join(paths.YML_TOOLS_DIR, args.output.replace(".yml", "_pristine.yml")))
+        shutil.copyfile(output_file, os.path.join(paths.YML_TOOLS_DIR, output_file.replace(".yml", "_pristine.yml")))
 
         from .yaml_util import _get_color
         cyan = _get_color(COLOR_CYAN)
         nc = _get_color(COLOR_NC)
 
-        log_info(f"GENERATED EXPERIMENT CONFIGURATION FILE: {cyan}{args.output}{nc}")
+        log_info(f"GENERATED EXPERIMENT CONFIGURATION FILE: {cyan}{output_file}{nc}")
         log_warn("Review and make any necessary changes BEFORE running the experiment.")
-        log_info(f"For example, run: {cyan}meld {args.output} {paths.BASE_CONFIG_EXAMPLE}{nc}")
+        log_info(f"Tip: You can compare with the base config or validate with {cyan}ece4-exp validate {output_file}{nc}")
         print("\n")
 
 if __name__ == "__main__":

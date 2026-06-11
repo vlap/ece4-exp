@@ -1,0 +1,18 @@
+# Include recipe and platform files
+recursive-include recipes *.yml *.yaml
+recursive-include platforms *.yml *.yaml
+
+# Include documentation
+include README.md
+include LICENSE
+include QUICK_DEMO.sh
+
+# Include scripts
+include scripts/ece4-exp-completion.sh
+
+# Exclude development files
+exclude ece4-exp
+exclude setup.sh
+exclude SIMPLIFICATION_ANALYSIS.md
+recursive-exclude autosubmit *
+global-exclude *.pyc __pycache__
