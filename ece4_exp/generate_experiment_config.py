@@ -348,85 +348,60 @@ def load_user_defaults():
             log_warn(f"Could not load user defaults from {paths.USER_DEFAULTS_FILE}: {e}")
     return {}
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate EC-Earth4 experiment config.",
-        epilog="Parameters are resolved in this order: CLI args > user config (~/.config/ece4-exp/defaults.yml) > autosubmit files (if provided)"
-    )
-    # Autosubmit compatibility
-    parser.add_argument("--expdef", help="Path to expdef_EXPID.yml file (autosubmit mode)")
-    parser.add_argument("--jobs", help="Path to jobs_EXPID.yml file (autosubmit mode)")
 
-    # Core parameters
-    parser.add_argument("--platform", help="HPC Platform (e.g. bsc-marenostrum5)")
-    parser.add_argument("--launcher", help="Launcher type (e.g. slurm-wrapper-taskset)")
-    parser.add_argument("--kind", help="Launcher kind (e.g. CPLD-SR, auto)")
-    parser.add_argument("--sim-procs", help="Number of processors for SIM job")
-    parser.add_argument("--recipe", help="User recipe name (e.g. gcm-sr.yml)")
-    parser.add_argument("--repo-owner", help="ECE4 repository owner")
-    parser.add_argument("--repo-branch", help="ECE4 repository branch")
+def run_generate(
+    platform=None, launcher=None, kind=None, sim_procs=None,
+    recipe=None, repo_owner=None, repo_branch=None,
+    expid=None, account=None, walltime=None, description=None,
+    output=None, dry_run=False, quiet=False, info=False,
+    expdef=None, jobs=None,
+):
+    """Resolve all parameters, sync EC-Earth4 repo, and generate the config.
 
-    # User-specific parameters (NEW)
-    parser.add_argument("--expid", help="Experiment ID (4 alphanumeric characters, e.g., a001, test)")
-    parser.add_argument("--account", help="HPC account/project")
-    parser.add_argument("--walltime", help="Walltime in hours (e.g. 48)")
-    parser.add_argument("--description", help="Experiment description")
-
-    # Output control
-    parser.add_argument("-o", "--output", default=None, help="Output YAML file name (default: {expid}_experiment.yml)")
-    parser.add_argument("--dry-run", action="store_true", help="Print YAML instead of writing to file")
-    parser.add_argument("--quiet", action="store_true", help="Suppress colored output and prompts (for scripting)")
-    parser.add_argument("--info", action="store_true", help="Only print extracted settings and exit")
-    args = parser.parse_args()
-
-    # Enable quiet mode if --quiet flag is set
-    if args.quiet:
+    Called directly by cmd_generate in cli.py.  Also called by main() after
+    argparse resolves CLI flags into the same keyword arguments.
+    """
+    if quiet:
         set_quiet_mode(True)
 
-    # Load user defaults from ~/.config/ece4-exp/defaults.yml
     user_defaults = load_user_defaults()
 
-    # Load autosubmit files if provided (backward compatibility)
+    # Load Autosubmit files when provided (backward compatibility)
     expdef_conf = {}
     jobs_conf = {}
+    if expdef and os.path.exists(expdef):
+        expdef_conf = load_yaml(expdef)
+    if jobs and os.path.exists(jobs):
+        jobs_conf = load_yaml(jobs)
 
-    if args.expdef and os.path.exists(args.expdef):
-        expdef_conf = load_yaml(args.expdef)
-    if args.jobs and os.path.exists(args.jobs):
-        jobs_conf = load_yaml(args.jobs)
+    # Resolution order: caller args > user defaults > Autosubmit files
+    hpcarch     = platform    or user_defaults.get("platform")   or expdef_conf.get("DEFAULT", {}).get("HPCARCH")
+    repo_owner  = repo_owner  or user_defaults.get("repo_owner") or expdef_conf.get("GIT", {}).get("SOURCES_REPO")
+    repo_branch = repo_branch or user_defaults.get("repo_branch") or expdef_conf.get("GIT", {}).get("SOURCES_BRANCH")
+    launcher_kind = kind or user_defaults.get("kind") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_KIND") or "auto"
+    launcher_type = launcher or user_defaults.get("launcher") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_TYPE")
+    user_recipe   = recipe    or user_defaults.get("recipe")    or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("USER_RECIPE")
+    sim_procs     = sim_procs or user_defaults.get("sim_procs") or jobs_conf.get("JOBS", {}).get("SIM", {}).get("PROCESSORS")
+    expid         = expid     or user_defaults.get("expid")
+    account       = account   or user_defaults.get("account")
+    qos           = user_defaults.get("qos")
+    walltime      = walltime  or user_defaults.get("walltime")
+    description   = description or user_defaults.get("description")
 
-    # Resolution order: 1. CLI args, 2. User defaults, 3. Autosubmit files, 4. Error if still missing
-    hpcarch = args.platform or user_defaults.get("platform") or expdef_conf.get("DEFAULT", {}).get("HPCARCH")
-    repo_owner = args.repo_owner or user_defaults.get("repo_owner") or expdef_conf.get("GIT", {}).get("SOURCES_REPO")
-    repo_branch = args.repo_branch or user_defaults.get("repo_branch") or expdef_conf.get("GIT", {}).get("SOURCES_BRANCH")
-    launcher_kind = args.kind or user_defaults.get("kind") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_KIND") or "auto"
-    launcher_type = args.launcher or user_defaults.get("launcher") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_TYPE")
-    user_recipe = args.recipe or user_defaults.get("recipe") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("USER_RECIPE")
-    sim_procs = args.sim_procs or user_defaults.get("sim_procs") or jobs_conf.get("JOBS", {}).get("SIM", {}).get("PROCESSORS")
-
-    # User-specific parameters (NEW)
-    expid = args.expid or user_defaults.get("expid")
-    account = args.account or user_defaults.get("account")
-    qos = user_defaults.get("qos")  # qos only from user defaults, not CLI
-    walltime = args.walltime or user_defaults.get("walltime")
-    description = args.description or user_defaults.get("description")
-
-    # Validate expid format (EC-Earth4 standard: exactly 4 alphanumeric characters)
-    if expid:
-        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
-            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
-            log_info("Examples: a001, test, exp1, gcm4")
-            sys.exit(1)
+    if expid and not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+        log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
+        log_info("Examples: a001, test, exp1, gcm4")
+        sys.exit(1)
 
     if user_recipe and not user_recipe.endswith((".yml", ".yaml")):
         user_recipe += ".yml"
 
     # Final validation (launcher_kind always has a value — defaults to "auto")
     missing = []
-    if not hpcarch: missing.append("platform")
+    if not hpcarch:     missing.append("platform")
     if not launcher_type: missing.append("launcher")
-    if not sim_procs: missing.append("sim-procs")
-    if not repo_owner: missing.append("repo-owner")
+    if not sim_procs:   missing.append("sim-procs")
+    if not repo_owner:  missing.append("repo-owner")
     if not repo_branch: missing.append("repo-branch")
 
     if missing:
@@ -437,7 +412,7 @@ def main():
 
     from .yaml_util import _get_color
     cyan = _get_color(COLOR_CYAN)
-    nc = _get_color(COLOR_NC)
+    nc   = _get_color(COLOR_NC)
 
     print(f"{cyan}============================================================{nc}")
     print(f" Experiment Configuration Settings")
@@ -456,7 +431,7 @@ def main():
     print(f" Recipe              : {cyan}{user_recipe or '(none)'}{nc}")
     print(f"{cyan}============================================================{nc}")
 
-    if args.info:
+    if info:
         sys.exit(0)
 
     if os.environ.get("ECE4_SKIP_SYNC"):
@@ -464,31 +439,20 @@ def main():
     else:
         try:
             log_info(f"ECE4 repository synchronization: owner='{repo_owner}', ref='{repo_branch}'")
-            result = clone_ece4_yml_repo(
-                repo_owner,
-                repo_branch,
-                "scripts/runtime/experiment-config-example.yml",
-            )
-
+            result = clone_ece4_yml_repo(repo_owner, repo_branch,
+                                         "scripts/runtime/experiment-config-example.yml")
             if result.get("switched_remote"):
                 status = "(switched repo)"
             elif result["is_cached"]:
                 status = "(cached)"
             else:
                 status = "(initialized)"
-
             log_info(f"Successfully synced {repo_branch} at {result['commit']} {status}.")
-
         except Exception as e:
             log_error(f"Failed to sync ECE4 repo:\n{e}")
             sys.exit(1)
 
-    # Auto-generate output filename if not specified
-    output_file = args.output
-    if not output_file and expid:
-        output_file = f"{expid}_experiment.yml"
-    elif not output_file:
-        output_file = "experiment.yml"
+    output_file = output or (f"{expid}_experiment.yml" if expid else "experiment.yml")
 
     generate_config(
         platform=hpcarch,
@@ -502,24 +466,66 @@ def main():
         description=description,
         qos=qos,
         output=output_file,
-        dry_run=args.dry_run,
+        dry_run=dry_run,
         ece4_version=repo_branch,
     )
 
-    if not args.dry_run:
-        # Save pristine copy for recipe extraction (always in USER_CONFIG_DIR, regardless of output path)
+    if not dry_run:
         pristine_name = Path(output_file).name.replace(".yml", "_pristine.yml")
         pristine_file = paths.USER_CONFIG_DIR / pristine_name
         shutil.copyfile(output_file, pristine_file)
 
-        from .yaml_util import _get_color
-        cyan = _get_color(COLOR_CYAN)
-        nc = _get_color(COLOR_NC)
-
         log_info(f"GENERATED EXPERIMENT CONFIGURATION FILE: {cyan}{output_file}{nc}")
         log_warn("Review and make any necessary changes BEFORE running the experiment.")
-        log_info(f"Tip: You can compare with the base config or validate with {cyan}ece4-exp validate {output_file}{nc}")
-        print("\n")
+        log_info(f"Tip: validate with {cyan}ece4-exp validate {output_file}{nc}")
+        print()
+
+
+def main():
+    """CLI entry point — parse args then delegate to run_generate()."""
+    parser = argparse.ArgumentParser(
+        description="Generate EC-Earth4 experiment config.",
+        epilog="Parameters are resolved in this order: CLI args > ~/.config/ece4-exp/defaults.yml > Autosubmit files"
+    )
+    parser.add_argument("--expdef",      help="Path to expdef_EXPID.yml (Autosubmit mode)")
+    parser.add_argument("--jobs",        help="Path to jobs_EXPID.yml (Autosubmit mode)")
+    parser.add_argument("--platform",    help="HPC platform (e.g. bsc-marenostrum5)")
+    parser.add_argument("--launcher",    help="Launcher type (e.g. slurm-wrapper-taskset)")
+    parser.add_argument("--kind",        help="Launcher kind (e.g. CPLD-SR, auto)")
+    parser.add_argument("--sim-procs",   dest="sim_procs", help="Number of processors")
+    parser.add_argument("--recipe",      help="Recipe name (e.g. gcm-sr.yml)")
+    parser.add_argument("--repo-owner",  dest="repo_owner", help="EC-Earth4 repo owner")
+    parser.add_argument("--repo-branch", dest="repo_branch", help="EC-Earth4 branch/tag")
+    parser.add_argument("--expid",       help="Experiment ID (4 alphanumeric characters)")
+    parser.add_argument("--account",     help="HPC account/project")
+    parser.add_argument("--walltime",    help="Walltime in hours")
+    parser.add_argument("--description", help="Experiment description")
+    parser.add_argument("-o", "--output", help="Output filename (default: {expid}_experiment.yml)")
+    parser.add_argument("--dry-run",  action="store_true", help="Print YAML without writing")
+    parser.add_argument("--quiet",    action="store_true", help="Suppress colored output")
+    parser.add_argument("--info",     action="store_true", help="Print settings and exit")
+    args = parser.parse_args()
+
+    run_generate(
+        platform=args.platform,
+        launcher=args.launcher,
+        kind=args.kind,
+        sim_procs=args.sim_procs,
+        recipe=args.recipe,
+        repo_owner=args.repo_owner,
+        repo_branch=args.repo_branch,
+        expid=args.expid,
+        account=args.account,
+        walltime=args.walltime,
+        description=args.description,
+        output=args.output,
+        dry_run=args.dry_run,
+        quiet=args.quiet,
+        info=args.info,
+        expdef=args.expdef,
+        jobs=args.jobs,
+    )
+
 
 if __name__ == "__main__":
     main()

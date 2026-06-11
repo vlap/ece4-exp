@@ -141,19 +141,14 @@ def cmd_info(args):
     expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
     jobs_file = Path(conf_path) / f"jobs_{expid}.yml"
 
-    from . import generate_experiment_config as gec
+    from .generate_experiment_config import run_generate
 
-    sys.argv = [
-        "ece4-exp",
-        "--expdef", str(expdef_file),
-        "--jobs", str(jobs_file),
-        "--info"
-    ]
-
-    if args.quiet:
-        sys.argv.append("--quiet")
-
-    gec.main()
+    run_generate(
+        expdef=str(expdef_file),
+        jobs=str(jobs_file),
+        info=True,
+        quiet=args.quiet,
+    )
 
 
 def cmd_setup(args):
@@ -246,51 +241,30 @@ def cmd_generate(args):
         print(f"  Run 'ece4-exp list' to see available recipes")
         sys.exit(1)
 
-    # Build sys.argv for the generate module
-    from . import generate_experiment_config as gec
+    from .generate_experiment_config import run_generate
+
     conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
-
-    sys.argv = ["ece4-exp"]
-
-    # Add autosubmit files if they exist (backward compatibility)
     expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
-    jobs_file = Path(conf_path) / f"jobs_{expid}.yml"
+    jobs_file   = Path(conf_path) / f"jobs_{expid}.yml"
 
-    if expdef_file.exists() and jobs_file.exists():
-        sys.argv.extend(["--expdef", str(expdef_file)])
-        sys.argv.extend(["--jobs", str(jobs_file)])
-
-    # Forward all args to generate module
-    if recipe:
-        sys.argv.extend(["--recipe", recipe])
-    if sim_procs:
-        sys.argv.extend(["--sim-procs", str(sim_procs)])
-    if expid:
-        sys.argv.extend(["--expid", expid])
-    if args.platform:
-        sys.argv.extend(["--platform", args.platform])
-    if args.launcher:
-        sys.argv.extend(["--launcher", args.launcher])
-    if args.kind:
-        sys.argv.extend(["--kind", args.kind])
-    if args.account:
-        sys.argv.extend(["--account", args.account])
-    if args.walltime:
-        sys.argv.extend(["--walltime", str(args.walltime)])
-    if args.description:
-        sys.argv.extend(["--description", args.description])
-    if args.repo_owner:
-        sys.argv.extend(["--repo-owner", args.repo_owner])
-    if args.repo_branch:
-        sys.argv.extend(["--repo-branch", args.repo_branch])
-    if args.output:
-        sys.argv.extend(["--output", args.output])
-    if args.dry_run:
-        sys.argv.append("--dry-run")
-    if args.quiet:
-        sys.argv.append("--quiet")
-
-    gec.main()
+    run_generate(
+        platform=args.platform,
+        launcher=args.launcher,
+        kind=args.kind,
+        sim_procs=str(sim_procs) if sim_procs else None,
+        recipe=recipe,
+        repo_owner=args.repo_owner,
+        repo_branch=args.repo_branch,
+        expid=expid,
+        account=args.account,
+        walltime=str(args.walltime) if args.walltime else None,
+        description=args.description,
+        output=args.output,
+        dry_run=args.dry_run,
+        quiet=args.quiet,
+        expdef=str(expdef_file) if expdef_file.exists() and jobs_file.exists() else None,
+        jobs=str(jobs_file)   if expdef_file.exists() and jobs_file.exists() else None,
+    )
 
 
 def cmd_inspect(args):
