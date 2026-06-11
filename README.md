@@ -61,10 +61,11 @@ ece4-exp generate gcm-sr 10 a001 --platform ecmwf-hpc2020 --account myproj
 
 **Custom recipes:**
 ```bash
-# Save your modifications
+# Generate, edit, save as recipe
 ece4-exp generate gcm-sr 10 test
-vim test_experiment.yml            # Make changes
+vim test_experiment.yml              # Make changes
 ece4-exp save --expid test --recipe gcm-sr
+# If you moved the file: --config /path/to/test_experiment.yml
 
 # Reuse your recipe
 ece4-exp generate test 10 a002
@@ -102,11 +103,23 @@ se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 
 ## Tab Completion
 
-Already enabled! `ece4-exp setup` automatically activates completion.
+Add one line to your shell config file (shown by `ece4-exp setup`):
 
-Just restart your shell after setup:
-- `ece4-exp ge<TAB>` → `ece4-exp generate`  
-- Works for all Python CLIs (pip, aws, django-admin, etc.)
+**bash** — add to `~/.bashrc`:
+```bash
+eval "$(register-python-argcomplete ece4-exp)"
+```
+
+**zsh** — add to `~/.zshrc`:
+```bash
+eval "$(register-python-argcomplete ece4-exp)"
+```
+
+Then restart your shell or run `source ~/.bashrc` (or `~/.zshrc`).
+
+After that:
+- `ece4-exp ge<TAB>` → `ece4-exp generate`
+- `ece4-exp generate gcm<TAB>` → completes recipe names
 
 ## Support
 

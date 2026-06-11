@@ -11,8 +11,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
     - uses: actions/checkout@v4
@@ -25,25 +25,46 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
+        pip install -e ".[highlight]"
+        pip install pytest
+
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/ -v --tb=short
 
     - name: Test CLI installation
       run: |
         ece4-exp --help
         ece4-exp list
 
-    - name: Test generate command
+    - name: Test generate (nodes-first interface)
+      run: |
+        ece4-exp generate gcm-sr 10 a001 --platform bsc-marenostrum5 --account test --dry-run
+
+    - name: Test generate (backward-compat --sim-procs)
       run: |
         ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid a001 --platform bsc-marenostrum5 --account test --dry-run
 
+    - name: Test all built-in recipes
+      run: |
+        ece4-exp generate omip-sr 2 o001 --platform bsc-marenostrum5 --account test --dry-run
+        ece4-exp generate amip-sr 8 atm1 --platform bsc-marenostrum5 --account test --dry-run
+        ece4-exp generate ccycle-sr 10 cc01 --platform bsc-marenostrum5 --account test --dry-run
+
     - name: Test expid validation
       run: |
-        # This should fail with clear error
-        ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid toolong --platform bsc-marenostrum5 --account test --dry-run || echo "Expected failure"
+        ece4-exp generate gcm-sr 10 toolong --platform bsc-marenostrum5 --account test --dry-run || echo "Expected failure"
 
-    - name: Test validate command
+    - name: Test inspect command
       run: |
-        # Generate a config first
-        ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid test --platform bsc-marenostrum5 --account test -o test.yml
-        # Then validate it
+        ece4-exp inspect gcm-sr
+        ece4-exp inspect omip-sr
+
+    - name: Test generate + validate
+      run: |
+        ece4-exp generate gcm-sr 10 test --platform bsc-marenostrum5 --account test -o test.yml
         ece4-exp validate test.yml
+
+    - name: Test ECMWF platform
+      run: |
+        ece4-exp generate gcm-sr 10 ec01 --platform ecmwf-hpc2020 --account spesiccf --dry-run

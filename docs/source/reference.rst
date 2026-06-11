@@ -21,7 +21,7 @@ Commands Overview
      - Discover what experiments you can generate
    * - **generate**
      - Create experiment config
-     - Main command - generate ready-to-run configs
+     - Main command — generate ready-to-run configs
    * - **inspect**
      - View recipe contents
      - Understand what a recipe configures
@@ -32,8 +32,8 @@ Commands Overview
      - Check config validity
      - Debug configuration issues
    * - **completion**
-     - Generate shell completion
-     - Enable TAB completion
+     - Generate shell completion script
+     - Enable TAB completion manually
 
 setup
 -----
@@ -42,31 +42,30 @@ setup
 
 **Use case**: Run once when you first install, or when switching HPC platforms.
 
-**Interactive setup**:
-
 .. code-block:: bash
 
    ece4-exp setup
 
 Asks 4 questions:
+
 1. Platform (MareNostrum5 or ECMWF HPC2020)
 2. Account/project name
 3. QoS (quality of service)
 4. Username (optional, for reference)
 
-Creates ``~/.config/ece4-exp/defaults.yml``.
+Creates ``~/.config/ece4-exp/defaults.yml``. Also shows the TAB completion command to add to your shell config.
 
 **When to re-run**:
-- Switching HPC platforms
-- Changing to a different account/project
-- After deleting ``~/.config/ece4-exp/``
 
-**Example output**:
+* Switching HPC platforms
+* Changing to a different account/project
+* After deleting ``~/.config/ece4-exp/``
+
+**Example interaction**:
 
 .. code-block:: text
 
    ece4-exp Interactive Setup
-   ========================================
 
    1. Which HPC platform do you use?
       [1] BSC MareNostrum 5
@@ -93,8 +92,6 @@ list
 **Purpose**: Show available recipes and their locations
 
 **Use case**: Discover what experiments you can generate, check if your custom recipes are recognized.
-
-**Basic usage**:
 
 .. code-block:: bash
 
@@ -124,16 +121,17 @@ list
      Built-in platforms: /path/to/site-packages/ece4_exp/platforms
 
 **When to use**:
-- Forgot recipe names
-- Checking if custom recipe is in the right place
-- Verifying package installation
+
+* Forgot recipe names
+* Checking if a custom recipe is in the right place
+* Verifying package installation
 
 generate
 --------
 
 **Purpose**: Generate experiment configuration file
 
-**Use case**: Main command for creating ready-to-run EC-Earth4 configs.
+**Use case**: The main command. Takes a recipe, number of nodes, and experiment ID; produces a ready-to-submit YAML config.
 
 **Syntax**:
 
@@ -143,112 +141,93 @@ generate
 
 **Arguments**:
 
-* ``RECIPE`` - Recipe name (with or without ``.yml``)
-* ``NODES`` - Number of compute nodes
-* ``EXPID`` - 4-character experiment ID (alphanumeric)
+* ``RECIPE`` — Recipe name (with or without ``.yml``, e.g. ``gcm-sr`` or ``gcm-sr.yml``)
+* ``NODES`` — Number of compute nodes
+* ``EXPID`` — 4-character alphanumeric experiment ID (EC-Earth4 standard)
 
 **Common options**:
 
-* ``--walltime HOURS`` - Walltime in hours
-* ``--platform PLATFORM`` - Override default platform
-* ``--account ACCOUNT`` - Override default account
-* ``-o FILE`` - Custom output filename
-* ``--dry-run`` - Preview without writing
+* ``--walltime HOURS`` — Walltime in hours (overrides platform default)
+* ``--platform PLATFORM`` — Override default platform
+* ``--account ACCOUNT`` — Override default account
+* ``-o FILE`` — Custom output filename (default: ``{expid}_experiment.yml``)
+* ``--dry-run`` — Print generated YAML without writing to file
+* ``--quiet`` — No colors, for scripting
 
-**Examples**:
+**Node-to-processor conversion**:
 
-**Basic generation**:
+The tool multiplies your node count by the platform's cores-per-node:
+
+* MareNostrum5: 112 cores/node → ``10 nodes = 1120 cores``
+* ECMWF HPC2020: 128 cores/node → ``10 nodes = 1280 cores``
+
+**Basic examples**:
 
 .. code-block:: bash
 
-   # Coupled GCM, 10 nodes, ID=a001
+   # Coupled GCM, 10 nodes
    ece4-exp generate gcm-sr 10 a001
    # → Creates: a001_experiment.yml
 
    # Ocean-only, 2 nodes
    ece4-exp generate omip-sr 2 o001
 
-   # Atmosphere-only, 8 nodes
-   ece4-exp generate amip-sr 8 atm1
+   # Atmosphere-only, 8 nodes with custom walltime
+   ece4-exp generate amip-sr 8 atm1 --walltime 72
 
 **With options**:
 
 .. code-block:: bash
 
-   # Custom walltime (72 hours)
-   ece4-exp generate gcm-sr 10 a002 --walltime 72
+   # Generate for ECMWF (overrides platform from defaults.yml)
+   ece4-exp generate gcm-sr 10 a001 --platform ecmwf-hpc2020
 
-   # Different platform
-   ece4-exp generate gcm-sr 10 a003 --platform ecmwf-hpc2020
+   # Preview config without writing
+   ece4-exp generate gcm-sr 10 a001 --dry-run
 
-   # Custom output filename
-   ece4-exp generate gcm-sr 10 a004 -o my-config.yml
+   # Quiet output (no colors), useful in scripts
+   ece4-exp generate gcm-sr 10 a001 --quiet
 
-   # Preview without writing
-   ece4-exp generate gcm-sr 10 a005 --dry-run
-
-**Node calculation**:
-
-The tool automatically calculates processors:
-
-* MareNostrum5: 112 cores/node → 10 nodes = 1120 cores
-* ECMWF HPC2020: 128 cores/node → 10 nodes = 1280 cores
-
-**Backward compatibility** (old style):
+**Ensemble / batch generation**:
 
 .. code-block:: bash
 
-   # Still works: specify processors directly
-   ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid a001
-
-**Common use cases**:
-
-.. code-block:: bash
-
-   # 1. Quick test (2 nodes)
-   ece4-exp generate gcm-sr 2 test
-
-   # 2. Production run (20 nodes, 48h walltime)
-   ece4-exp generate gcm-sr 20 prod --walltime 48
-
-   # 3. Ensemble members (10 configs)
-   for i in {01..10}; do
-     ece4-exp generate gcm-sr 10 e$i --walltime 24
+   # 5-member ensemble (4-char IDs: e001..e005)
+   for i in 001 002 003 004 005; do
+     ece4-exp generate gcm-sr 10 e${i} --walltime 48
    done
 
-   # 4. Different experiment types
-   ece4-exp generate gcm-sr 10 coupled   # Coupled
-   ece4-exp generate omip-sr 4 ocean     # Ocean-only
-   ece4-exp generate amip-sr 8 atmos     # Atmosphere-only
+   # Sweep over experiment types
+   ece4-exp generate gcm-sr  10 gcm1   # Coupled
+   ece4-exp generate omip-sr  4 ocn1   # Ocean-only
+   ece4-exp generate amip-sr  8 atm1   # Atmosphere-only
+
+**Backward compatibility** (original ``--sim-procs`` style still works):
+
+.. code-block:: bash
+
+   ece4-exp generate --recipe gcm-sr.yml --sim-procs 1120 --expid a001
 
 **Error handling**:
 
-Invalid expid:
-
 .. code-block:: bash
 
+   # Invalid expid (too long):
    ece4-exp generate gcm-sr 10 toolong
    # ERROR: Invalid expid 'toolong': Must be exactly 4 alphanumeric characters
    # Examples: a001, test, exp1, gcm4
 
-Missing arguments:
-
-.. code-block:: bash
-
+   # Missing arguments:
    ece4-exp generate gcm-sr
    # ERROR: Missing required arguments: NODES, EXPID
-   #
-   # Usage:
-   #   ece4-exp generate RECIPE NODES EXPID
+   # Usage: ece4-exp generate RECIPE NODES EXPID
 
 inspect
 -------
 
 **Purpose**: View recipe contents and location
 
-**Use case**: Understand what a recipe configures before using it, find where a recipe is located.
-
-**Syntax**:
+**Use case**: Understand what a recipe configures before using it, or find where it lives so you can copy/edit it.
 
 .. code-block:: bash
 
@@ -258,14 +237,9 @@ inspect
 
 .. code-block:: bash
 
-   # View built-in recipe
-   ece4-exp inspect gcm-sr
-
-   # View user recipe
-   ece4-exp inspect my-custom
-
-   # .yml extension optional
-   ece4-exp inspect gcm-sr.yml  # Same as above
+   ece4-exp inspect gcm-sr          # .yml extension optional
+   ece4-exp inspect gcm-sr.yml      # same result
+   ece4-exp inspect my-custom       # works for user recipes too
 
 **Example output**:
 
@@ -274,103 +248,77 @@ inspect
    Recipe: gcm-sr.yml
    Location: /path/to/ece4_exp/recipes/gcm-sr.yml
 
-   ─────────────────────────────────────────
    - base.context:
        experiment:
          monitoring:
            activate: true
        model_config:
-         components: ['oifs', 'nemo', 'xios', 'oasis']
+         components: [oifs, nemo, xios, rnfm, oasis]
          oifs:
-           grid: "TL255L91"
-           precision: "DP"
+           grid: TL255L91
+           precision: DP
          nemo:
-           grid: "eORCA1L75_ISO"
-   ─────────────────────────────────────────
+           grid: eORCA1L75_ISO
 
-**When to use**:
-
-* Before using a new recipe
-* Comparing recipes
-* Finding the path to edit a recipe
-* Understanding recipe structure
+Recipes are YAML overlays — they contain only the fields that differ from the base config. The ``- base.context:`` block is the EC-Earth4 ScriptEngine format for context injection.
 
 save
 ----
 
-**Purpose**: Save modifications as a reusable recipe
+**Purpose**: Save your modifications to a generated config as a reusable recipe
 
-**Use case**: You generated a config, edited it, and want to reuse those changes.
+**Use case**: You generated a config, edited it (changed grid resolution, enabled extra output, tweaked model settings), and want to reuse those changes for future experiments.
 
 **Workflow**:
 
 .. code-block:: bash
 
-   # 1. Generate experiment
+   # 1. Generate
    ece4-exp generate gcm-sr 10 test
 
    # 2. Edit the config
    vim test_experiment.yml
-   # Make changes (e.g., change grid resolution, add variables)
 
    # 3. Save as recipe
    ece4-exp save --expid test --recipe gcm-sr
 
-   # 4. Reuse your recipe
+   # 4. Reuse in future experiments
    ece4-exp generate test 10 prod
 
 **How it works**:
 
-Compares your edited file (``test_experiment.yml``) against the pristine copy (``~/.config/ece4-exp/test_experiment_pristine.yml``) and saves only the differences to ``~/.config/ece4-exp/recipes/test.yml``.
+Compares your edited ``test_experiment.yml`` against the pristine copy saved at generation time (``~/.config/ece4-exp/test_experiment_pristine.yml``) and extracts only the differences. These become the new recipe overlay, so it stays compact.
 
 **Arguments**:
 
-* ``--expid EXPID`` - Experiment ID (must match the generated config)
-* ``--recipe BASE`` - Base recipe name (to include its content)
-* ``-o OUTPUT`` - Custom output location (optional)
+* ``--expid EXPID`` — Experiment ID (required, 4 alphanumeric characters)
+* ``--config FILE`` — Path to the edited experiment YAML (default: ``{expid}_experiment.yml`` in CWD)
+* ``--recipe BASE`` — Base recipe name to build on
+* ``-o OUTPUT`` — Output recipe path (default: ``~/.config/ece4-exp/recipes/{expid}.yml``)
 
-**Examples**:
-
-.. code-block:: bash
-
-   # Save to user recipes (default)
-   ece4-exp save --expid test --recipe gcm-sr
-   # → Saves to: ~/.config/ece4-exp/recipes/test.yml
-
-   # Custom output location
-   ece4-exp save --expid test --recipe gcm-sr -o /shared/team/my-recipe.yml
-
-**Common use cases**:
+**Real-world examples**:
 
 .. code-block:: bash
 
-   # 1. High-resolution variant
+   # High-resolution variant
    ece4-exp generate gcm-sr 20 hihr
-   vim hihr_experiment.yml  # Change to TL511L91
+   vim hihr_experiment.yml      # Change oifs.grid to TL511L91
    ece4-exp save --expid hihr --recipe gcm-sr
-   # Now: ece4-exp generate hihr 20 a001
+   # Now use: ece4-exp generate hihr 20 a001
 
-   # 2. Custom monitoring setup
-   ece4-exp generate gcm-sr 10 mon1
-   vim mon1_experiment.yml  # Add custom output variables
-   ece4-exp save --expid mon1 --recipe gcm-sr
-
-   # 3. Team-specific config
+   # Team-shared config
    ece4-exp generate gcm-sr 10 team
-   vim team_experiment.yml  # Team-specific settings
-   ece4-exp save --expid team --recipe gcm-sr
-   cp ~/.config/ece4-exp/recipes/team.yml /shared/recipes/
+   vim team_experiment.yml      # Add team-specific output variables
+   ece4-exp save --expid team --recipe gcm-sr -o /shared/recipes/team.yml
 
-**Important**: Always specify ``--recipe`` to include the base recipe content.
+**Important**: Always specify ``--recipe`` to include the base recipe content in the saved file.
 
 validate
 --------
 
 **Purpose**: Check configuration file validity
 
-**Use case**: Debug configuration issues, verify config before submission.
-
-**Syntax**:
+**Use case**: Debug configuration issues, or verify a config you manually edited.
 
 .. code-block:: bash
 
@@ -380,10 +328,9 @@ validate
 
 .. code-block:: bash
 
-   # Validate generated config
    ece4-exp validate a001_experiment.yml
 
-   # Validate after manual editing
+   # Typical after manual editing:
    vim a001_experiment.yml
    ece4-exp validate a001_experiment.yml
 
@@ -396,57 +343,148 @@ validate
    ✓ Component configuration valid
    ✓ Configuration is valid
 
-**When to use**:
-
-* After manually editing a config
-* Debugging generation issues
-* Before submitting experiment to EC-Earth4
-* Automated testing in scripts
-
-**Note**: Validation happens automatically during ``generate``, so this command is mainly for manual debugging.
+**Note**: Validation runs automatically during ``generate``, so this command is mainly useful after manual edits.
 
 completion
 ----------
 
-**Purpose**: Generate shell completion script
+**Purpose**: Enable TAB completion for commands, recipe names, and flags.
 
-**Use case**: Enable TAB completion for recipe names, commands, and options.
-
-**Syntax**:
+**Setup** (one-time, add to your shell config file):
 
 .. code-block:: bash
 
-   ece4-exp completion {bash|zsh}
+   # bash — add to ~/.bashrc:
+   eval "$(register-python-argcomplete ece4-exp)"
 
-**Setup**:
+   # zsh — add to ~/.zshrc:
+   eval "$(register-python-argcomplete ece4-exp)"
 
-.. code-block:: bash
-
-   # One-time setup - no config file editing needed
-   activate-global-python-argcomplete --user
-   # Restart your shell
-
-That's it! This enables completion for ALL Python CLIs (pip, aws, django-admin, ece4-exp, etc.)
-
-**How it works**: Creates ``~/.bash_completion.d/python-argcomplete`` which your shell auto-loads.
+Then run ``source ~/.bashrc`` (or ``~/.zshrc``), or restart your shell.
 
 **What it enables**:
 
 .. code-block:: bash
 
-   # Command completion
-   ece4-exp ge<TAB>     → ece4-exp generate
+   ece4-exp ge<TAB>              # → ece4-exp generate
+   ece4-exp generate gc<TAB>    # → ece4-exp generate gcm-sr
+   ece4-exp generate gcm-sr 10 a001 --w<TAB>  # → --walltime
 
-   # Recipe completion
-   ece4-exp generate gc<TAB>  → ece4-exp generate gcm-sr
+**Manual script generation** (if automatic setup doesn't work):
 
-   # Flag completion
-   ece4-exp generate gcm-sr 10 a001 --w<TAB>  → --walltime
+.. code-block:: bash
 
-**When to use**:
+   # Generate and source directly:
+   eval "$(ece4-exp completion bash)"   # bash
+   eval "$(ece4-exp completion zsh)"    # zsh
 
-* After installing ece4-exp
-* When working frequently with the tool
+Configuration Files
+-------------------
+
+User Defaults (``~/.config/ece4-exp/defaults.yml``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Created by ``ece4-exp setup``. All fields are optional — you only need the ones you want to pre-fill.
+
+.. code-block:: yaml
+
+   # Platform & EC-Earth4 Version
+   platform: bsc-marenostrum5
+   launcher: slurm-wrapper-taskset  # Rarely needs changing
+   kind: auto                       # Auto-detects from recipe
+
+   repo_owner: ec-earth             # Official EC-Earth4 repo
+   repo_branch: v4.1.8              # Pinned stable version
+
+   # Your HPC Account
+   account: bsc32
+   qos: gp_bsces
+
+   # Optional: Pre-fill recipe and/or node count to save typing
+   # recipe: gcm-sr
+   # sim_procs: 1120
+
+**Resolution order**: CLI flags > ``defaults.yml`` > Platform defaults
+
+User Recipes (``~/.config/ece4-exp/recipes/``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Custom recipes stored here override built-in recipes with the same name.
+
+**Creating recipes — three methods**:
+
+*Method 1* — Save from a generated experiment (recommended):
+
+.. code-block:: bash
+
+   ece4-exp generate gcm-sr 10 test
+   vim test_experiment.yml           # Make your changes
+   ece4-exp save --expid test --recipe gcm-sr
+
+*Method 2* — Copy and modify an existing recipe:
+
+.. code-block:: bash
+
+   cp $(python3 -c "from ece4_exp import paths; print(paths.RECIPES_DIR)")/gcm-sr.yml \
+      ~/.config/ece4-exp/recipes/my-gcm.yml
+   vim ~/.config/ece4-exp/recipes/my-gcm.yml
+
+*Method 3* — Write from scratch (advanced):
+
+.. code-block:: yaml
+
+   # ~/.config/ece4-exp/recipes/hi-res.yml
+   - base.context:
+       model_config:
+         oifs:
+           grid: TL511L91     # High-resolution atmosphere
+         nemo:
+           grid: eORCA025L75  # High-resolution ocean
+
+Recipes use the EC-Earth4 ScriptEngine ``base.context`` format. Only specify fields that differ from the base config.
+
+**Sharing recipes with colleagues**:
+
+.. code-block:: bash
+
+   # Share
+   cp ~/.config/ece4-exp/recipes/my-recipe.yml /shared/team/
+
+   # Use a shared recipe
+   cp /shared/team/my-recipe.yml ~/.config/ece4-exp/recipes/
+   ece4-exp generate my-recipe 10 a001
+
+User Platforms (``~/.config/ece4-exp/platforms/``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Custom platform launcher files stored here override built-in platforms with the same name.
+
+.. code-block:: bash
+
+   # Copy built-in platform as a starting template
+   cp $(python3 -c "from ece4_exp import paths; print(paths.PLATFORMS_DIR)")/bsc-marenostrum5.yml \
+      ~/.config/ece4-exp/platforms/my-hpc.yml
+
+   vim ~/.config/ece4-exp/platforms/my-hpc.yml
+   ece4-exp generate gcm-sr 10 a001 --platform my-hpc
+
+**Platform file structure** (key fields):
+
+.. code-block:: yaml
+
+   ppn: 112                # Processors per node — used to convert nodes → procs
+
+   slurm-wrapper-taskset:  # Launcher type (matching --launcher)
+     CPLD-SR:              # Launcher kind (auto-detected from recipe)
+       slurm:
+         sbatch:
+           opts:
+             time: "01:00:00"
+       groups:             # Node layout: how cores are divided among components
+         - {nodes: 1, oifs: 25, nemo: 9, xios: 1, rnfm: 1}
+         - {nodes: 9, oifs: 25, nemo: 10, xios: 1}
+
+The ``groups`` list defines how nodes are split between model components. Each entry covers some nodes; ``oifs``, ``nemo``, ``xios``, ``rnfm`` values are the number of MPI tasks for each component on those nodes.
 
 Common Workflows
 ----------------
@@ -455,8 +493,8 @@ Common Workflows
 
 .. code-block:: bash
 
-   # 10-member ensemble
-   for i in {01..10}; do
+   # 5-member ensemble
+   for i in 001 002 003 004 005; do
      ece4-exp generate gcm-sr 10 e${i} --walltime 48
    done
 
@@ -464,135 +502,95 @@ Common Workflows
 
 .. code-block:: bash
 
-   # Different resolutions
-   ece4-exp generate gcm-sr 10 sr01    # Standard resolution
-   ece4-exp generate gcm-hr 40 hr01    # High resolution (custom recipe)
-
-   # Different forcings
-   ece4-exp generate gcm-sr 10 ctrl    # Control
-   ece4-exp generate omip-sr 4 ocn1    # Ocean-only
-
-**Team collaboration**:
-
-.. code-block:: bash
-
-   # Create team recipe
-   ece4-exp generate gcm-sr 10 team
-   vim team_experiment.yml  # Add team settings
-   ece4-exp save --expid team --recipe gcm-sr
-
-   # Share with team
-   cp ~/.config/ece4-exp/recipes/team.yml /shared/team/
-
-   # Team members use it
-   cp /shared/team/team.yml ~/.config/ece4-exp/recipes/
-   ece4-exp generate team 10 a001
-
-**Platform migration**:
-
-.. code-block:: bash
-
-   # Generate for MareNostrum5
+   # Same recipe, different platforms
    ece4-exp generate gcm-sr 10 mn01 --platform bsc-marenostrum5
-
-   # Generate for ECMWF (same recipe, different platform)
    ece4-exp generate gcm-sr 10 ec01 --platform ecmwf-hpc2020
 
-Configuration Files
--------------------
+   # Different experiment types
+   ece4-exp generate gcm-sr  10 gcm1   # Coupled
+   ece4-exp generate omip-sr  4 ocn1   # Ocean-only
+   ece4-exp generate amip-sr  8 atm1   # Atmosphere-only
 
-User Defaults
-~~~~~~~~~~~~~
-
-Location: ``~/.config/ece4-exp/defaults.yml``
-
-.. code-block:: yaml
-
-   # Platform & EC-Earth4 Version
-   platform: bsc-marenostrum5
-   launcher: slurm-wrapper-taskset
-   kind: auto
-   repo_owner: ec-earth
-   repo_branch: v4.1.8
-
-   # Your HPC Account
-   account: bsc32
-   qos: gp_bsces
-
-   # Optional: Auto-fill recipe
-   # recipe: gcm-sr
-
-**Resolution order**: CLI flags > User defaults > Platform defaults
-
-User Recipes
-~~~~~~~~~~~~
-
-Location: ``~/.config/ece4-exp/recipes/``
-
-Recipe files are YAML overlays that merge with base configurations:
-
-.. code-block:: yaml
-
-   - base.context:
-       experiment:
-         monitoring:
-           activate: true
-       model_config:
-         components: [oifs, nemo, xios, oasis]
-         oifs:
-           grid: TL255L91
-
-User Platforms
-~~~~~~~~~~~~~~
-
-Location: ``~/.config/ece4-exp/platforms/``
-
-Custom platform configurations:
+**Scripted generation**:
 
 .. code-block:: bash
 
-   # Copy built-in platform as template
-   cp $(python3 -c "from ece4_exp import paths; print(paths.PLATFORMS_DIR)")/bsc-marenostrum5.yml \\
-      ~/.config/ece4-exp/platforms/my-hpc.yml
+   #!/bin/bash
+   PLATFORM="bsc-marenostrum5"
+   ACCOUNT="bsc32"
 
-   # Edit for your HPC
-   vim ~/.config/ece4-exp/platforms/my-hpc.yml
+   for exp in a001 a002 a003; do
+     ece4-exp generate gcm-sr 10 $exp \
+       --platform $PLATFORM --account $ACCOUNT --quiet
+   done
+
+**Custom recipe workflow**:
+
+.. code-block:: bash
+
+   # Create a high-resolution recipe
+   ece4-exp generate gcm-sr 40 hihr
+   vim hihr_experiment.yml             # Change to TL511L91 + eORCA025L75
+   ece4-exp save --expid hihr --recipe gcm-sr
+
+   # Use it from now on
+   ece4-exp generate hihr 40 h001
+
+Autosubmit Integration
+-----------------------
+
+If you use Autosubmit to manage your experiments, ece4-exp can read parameters from Autosubmit configuration files:
+
+.. code-block:: bash
+
+   ece4-exp generate \
+     --recipe gcm-sr.yml \
+     --expdef /path/to/autosubmit/a001/conf/expdef_a001.yml \
+     --jobs   /path/to/autosubmit/a001/conf/jobs_a001.yml
+
+Parameters in Autosubmit files (platform, account, etc.) are used as a fallback when not specified on the CLI or in ``defaults.yml``.
 
 Troubleshooting
 ---------------
 
-**"ERROR: Missing required arguments"**:
+**"ERROR: Missing required arguments"**
 
-Run ``ece4-exp setup`` first to configure defaults.
+Run ``ece4-exp setup`` to configure your platform and account defaults.
 
-**"ERROR: Invalid expid"**:
+**"ERROR: Invalid expid"**
 
-Expid must be exactly 4 alphanumeric characters: ``a001``, ``test``, ``exp1`` (not ``a1``, ``experiment``, or ``exp-1``).
+The experiment ID must be exactly 4 alphanumeric characters:
 
-**"ERROR: Recipe not found"**:
+* Valid: ``a001``, ``test``, ``exp1``, ``ctrl``
+* Invalid: ``a1``, ``experiment``, ``exp-1``, ``test1234``
 
-.. code-block:: bash
-
-   ece4-exp list  # Check available recipes
-
-**"ERROR: Pristine file not found"** (when using ``save``):
-
-You must ``generate`` the experiment first before you can ``save`` modifications.
-
-**Recipe in wrong location**:
-
-User recipes must be in: ``~/.config/ece4-exp/recipes/``
+**"ERROR: Recipe not found"**
 
 .. code-block:: bash
 
-   # Copy to correct location
-   cp my-recipe.yml ~/.config/ece4-exp/recipes/
+   ece4-exp list    # Check available recipe names
 
-**Platform not configured**:
+**"ERROR: Pristine file not found"** (when using ``save``)
+
+You must ``generate`` the experiment first before you can ``save`` modifications. The pristine copy is created at generation time.
+
+**TAB completion not working**
+
+Make sure you have added the eval line to your shell config:
 
 .. code-block:: bash
 
-   ece4-exp setup  # Re-run setup
+   echo 'eval "$(register-python-argcomplete ece4-exp)"' >> ~/.bashrc
+   source ~/.bashrc
+
+**Git clone fails** (no network access or private repo)
+
+The tool fetches base config from ``https://git.smhi.se/ec-earth/ecearth4.git``.
+Check network access, or use ``--repo-owner`` to point to a mirror.
+
+**Recipe changes not taking effect**
+
+User recipes take priority over built-in ones. Run ``ece4-exp list`` to verify which file is being found.
 
 Exit Codes
 ----------
@@ -610,44 +608,37 @@ Exit Codes
    * - 130
      - Interrupted by user (Ctrl+C)
 
-Environment Variables
----------------------
-
-* ``CONF_PATH`` - Path to Autosubmit conf directory (for backward compat)
-* ``COLOR_NC``, ``COLOR_*`` - Override color output
-
 Debug Mode
 ----------
 
 .. code-block:: bash
 
-   # Enable debug output
+   # Enable full stack traces on errors:
    DEBUG=1 ece4-exp generate gcm-sr 10 a001
-
-   # Or with --debug flag (shows full stack traces)
-   ece4-exp generate gcm-sr 10 a001 --debug
 
 Python API
 ----------
 
-For programmatic use:
+For programmatic use in scripts or notebooks:
 
 .. code-block:: python
 
    import sys
    from ece4_exp import cli
 
-   # Run command
+   # Run a command
    sys.argv = ['ece4-exp', 'generate', 'gcm-sr', '10', 'a001']
    cli.main()
 
-   # Load paths
+   # Access paths
    from ece4_exp import paths
-   print(paths.RECIPES_DIR)
-   print(paths.USER_DEFAULTS_FILE)
+   print(paths.RECIPES_DIR)        # Built-in recipes directory
+   print(paths.USER_DEFAULTS_FILE) # User defaults file
 
-   # Load YAML
-   from ece4_exp.yaml_util import load_yaml_config
-   config = load_yaml_config('config.yml')
+   # Load and merge YAML configs
+   from ece4_exp.yaml_util import load_yaml_config, deep_merge
+   base   = load_yaml_config('base.yml')
+   recipe = load_yaml_config('gcm-sr.yml')
+   merged = deep_merge(base, recipe)
 
-See full API documentation in source code: https://github.com/vlap/ece4-exp
+See full source at: https://github.com/vlap/ece4-exp

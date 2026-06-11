@@ -75,7 +75,7 @@ _ece4_exp_completion() {
                     return 0
                     ;;
                 --repo-branch)
-                    COMPREPLY=( $(compgen -W "main v4.1.8 v4.1.6 v4.2.0" -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "v4.1.8 main" -- ${cur}) )
                     return 0
                     ;;
                 *)
@@ -155,7 +155,7 @@ _ece4_exp() {
         '--walltime[Walltime in hours]:hours:'
         '--description[Description]:description:'
         '--repo-owner[Repository owner]:owner:(ec-earth)'
-        '--repo-branch[Repository branch]:branch:(main v4.1.8 v4.1.6 v4.2.0)'
+        '--repo-branch[Repository branch]:branch:(v4.1.8 main)'
         '(-o --output)'{-o,--output}'[Output file]:file:_files'
         '--dry-run[Preview without writing]'
         '--quiet[Suppress colored output]'

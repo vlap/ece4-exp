@@ -3,6 +3,54 @@ Changelog
 
 All notable changes to |ece4exp| are documented here.
 
+Version 1.3.0 (2026-06-11)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+* **Fixed ``ece4-exp save`` completely broken**: ``save_recipe_from_diff.py`` was missing a ``main()`` function,
+  causing ``ece4-exp save`` to crash with ``AttributeError`` on every invocation.
+
+* **Fixed save command ignoring ``--config`` path**: ``create_recipe_from_diff`` looked for
+  ``{expid}_experiment.yml`` in the current working directory regardless of where the file was generated.
+  Now accepts an explicit ``modified_file`` path. Added ``--config`` flag to ``ece4-exp save``.
+
+* **Fixed pristine file written to wrong directory**: When using ``-o /absolute/path/a001.yml``,
+  the pristine copy ended up in ``/absolute/path/`` instead of ``~/.config/ece4-exp/``, breaking
+  subsequent ``save``. Fixed by always using ``Path(output_file).name`` to build the pristine path.
+
+* **Fixed ``--quiet`` flag not suppressing color in node-conversion log**: ``set_quiet_mode()`` was
+  called after the first ``log_info()`` in ``cmd_generate``. Now applied at the start of the function.
+
+* **Fixed recipe TAB completion returning nothing**: The positional ``recipe`` argument had no
+  argcomplete completer registered. Added ``_recipe_completer()`` to both ``generate`` and ``inspect``.
+
+* **Fixed stale ``BASE_CONFIG_EXAMPLE`` constant**: Path evaluated at import time, before the
+  EC-Earth4 repo was cloned. Replaced with ``get_base_config_example()`` called after clone.
+
+Improvements
+~~~~~~~~~~~~
+
+* **Module rename**: ``generate-experiment-config.py`` → ``generate_experiment_config.py``,
+  ``validate-experiment-config.py`` → ``validate_experiment_config.py``. Removes ``importlib``
+  hacks; modules are now directly importable.
+
+* **``cmd_save`` refactored**: No longer rewrites ``sys.argv`` to call its own module. Calls
+  ``create_recipe_from_diff()`` directly.
+
+* **EC-Earth4 version stamp in generated configs**: Generated files now include
+  ``experiment._ece4_version: <branch>`` so scientists know which version produced the config.
+
+* **104 unit tests added**: Covers YAML merge logic, node-evaluation expressions, expid validation,
+  launcher-kind auto-detection, CLI argument routing, save/overlay roundtrip, and the full
+  generate pipeline (no network access required — base config injected as fixture).
+
+* **CI expanded**: Tests all four built-in recipes, both platforms, backward-compat interface,
+  and runs the unit test suite on Python 3.9–3.12 / Linux + macOS.
+
+**Installation**: ``pip install --upgrade ece4-exp``
+
 Version 1.2.0 (2026-06-11)
 --------------------------
 

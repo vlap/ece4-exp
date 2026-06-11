@@ -5,6 +5,7 @@ init_config.py
 Interactive setup to create user configuration directory and defaults file.
 """
 
+import os
 import sys
 from pathlib import Path
 from . import paths
@@ -150,21 +151,28 @@ qos: {qos}
         # Enable shell completion automatically
         print(f"{COLOR_CYAN}Enabling shell completion...{COLOR_NC}")
         import subprocess
+        shell = os.environ.get("SHELL", "")
+        rc_file = "~/.zshrc" if "zsh" in shell else "~/.bashrc"
+        eval_line = 'eval "$(register-python-argcomplete ece4-exp)"'
         try:
+            # register-python-argcomplete generates the completion script for this specific command
             result = subprocess.run(
-                ["activate-global-python-argcomplete", "--user"],
+                ["register-python-argcomplete", "ece4-exp"],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             if result.returncode == 0:
-                log_info("✓ Shell completion enabled (restart your shell to activate)")
+                log_info(f"✓ Shell completion ready — add this line to {rc_file}:")
+                print(f"  {COLOR_CYAN}{eval_line}{COLOR_NC}")
+                print(f"  Then restart your shell or run: {COLOR_CYAN}source {rc_file}{COLOR_NC}")
             else:
-                log_warn("Could not enable completion automatically")
-                print(f"  Run manually: {COLOR_CYAN}activate-global-python-argcomplete --user{COLOR_NC}")
+                log_warn("Could not generate completion script")
+                print(f"  Add manually to {rc_file}: {COLOR_CYAN}{eval_line}{COLOR_NC}")
         except (FileNotFoundError, subprocess.TimeoutExpired):
             log_warn("argcomplete not found (it's optional)")
-            print(f"  To enable completion: {COLOR_CYAN}activate-global-python-argcomplete --user{COLOR_NC}")
+            print(f"  To enable TAB completion, add to {rc_file}:")
+            print(f"  {COLOR_CYAN}{eval_line}{COLOR_NC}")
 
         print()
         print(f"{COLOR_GREEN}You're all set!{COLOR_NC} Try generating your first experiment:")

@@ -6,25 +6,37 @@ Generate EC-Earth4 experiment configurations in 30 seconds.
 .. code-block:: bash
 
    pip install ece4-exp
-   ece4-exp setup                  # First-time configuration
+   ece4-exp setup                    # First-time configuration
    ece4-exp generate gcm-sr 10 a001  # Generate experiment (10 nodes)
 
 What is ece4-exp?
 -----------------
 
-A command-line tool that generates EC-Earth4 experiment configurations using a YAML overlay system.
+A command-line tool that generates EC-Earth4 experiment configuration files using a YAML overlay system.
 
-**Why use it?**
+**The problem it solves**: Creating an EC-Earth4 experiment config manually means editing a 250-line YAML file, calculating processor distributions, matching components, paths, and accounts — a 2–4 hour job. ece4-exp brings that down to 30 seconds.
 
-* 🚀 **30 seconds** vs 30 minutes (manual configuration)
-* 📦 **Pre-built recipes**: gcm-sr, omip-sr, amip-sr, ccycle-sr
-* 🎯 **Simple**: Just specify nodes, not processors
-* ⚙️ **Auto-calculates**: Processor distribution based on your platform
-* 🔧 **Customizable**: User recipes and platform configs
+**How it works**:
 
-**How it works:**
+The tool merges five configuration layers into a single validated YAML file:
 
-Merges configurations in order: Base → Platform → Recipe → Your defaults → CLI flags
+.. code-block:: text
+
+   1. Base config       (fetched from EC-Earth4 repo, always up-to-date)
+        ↓
+   2. Platform launcher (node layout, SLURM settings for your HPC)
+        ↓
+   3. Recipe            (experiment type: GCM, OMIP, AMIP, carbon cycle...)
+        ↓
+   4. Your defaults     (~/.config/ece4-exp/defaults.yml)
+        ↓
+   5. CLI flags         (per-run overrides)
+        ↓
+   Generated config     (a001_experiment.yml, ready to submit)
+
+Each layer overrides the previous. You only specify what differs from defaults.
+
+**Nodes, not processors**: Instead of calculating ``10 nodes × 112 cores/node = 1120``, you just say ``10``. The tool looks up your platform's cores-per-node and does the math.
 
 Installation
 ------------
@@ -43,25 +55,35 @@ Installation
    cd ece4-exp
    pip install -e .
 
-**Shell completion**: Already enabled! ``ece4-exp setup`` automatically activates TAB completion. Just restart your shell after setup.
+**Shell completion**: After ``ece4-exp setup``, add one line to your shell config:
+
+.. code-block:: bash
+
+   # bash — add to ~/.bashrc
+   eval "$(register-python-argcomplete ece4-exp)"
+
+   # zsh — add to ~/.zshrc
+   eval "$(register-python-argcomplete ece4-exp)"
+
+Then ``source ~/.bashrc`` (or restart your shell).
 
 Supported Platforms
 ~~~~~~~~~~~~~~~~~~~
 
-* **BSC MareNostrum 5** - 112 cores/node
-* **ECMWF HPC2020** - 128 cores/node
+* **BSC MareNostrum 5** — 112 cores/node
+* **ECMWF HPC2020** — 128 cores/node
 * Custom platforms supported via ``~/.config/ece4-exp/platforms/``
 
 Quick Start
 -----------
 
-**1. Setup** (one-time):
+**1. Setup** (one-time, ~1 minute):
 
 .. code-block:: bash
 
    ece4-exp setup
 
-Interactive setup asks for your platform and account. Creates ``~/.config/ece4-exp/defaults.yml``.
+Interactive wizard asks for your HPC platform and account. Creates ``~/.config/ece4-exp/defaults.yml``.
 
 **2. List available recipes**:
 
@@ -75,14 +97,32 @@ Interactive setup asks for your platform and account. Creates ``~/.config/ece4-e
 
    ece4-exp generate gcm-sr 10 a001
 
-This generates ``a001_experiment.yml`` with 10 nodes (1120 cores on MareNostrum5).
+This generates ``a001_experiment.yml`` — 10 nodes (1120 cores on MareNostrum5), coupled GCM configuration, ready to submit.
+
+**4. Run the experiment with EC-Earth4**:
+
+.. code-block:: bash
+
+   cd /path/to/ecearth4/scripts/runtime
+   se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
+
+The generated file is one of the YAML files passed to the EC-Earth4 ``se`` (ScriptEngine) command. It holds the experiment-specific settings; the platform and user files are loaded separately.
+
+About Experiment IDs
+~~~~~~~~~~~~~~~~~~~~
+
+The EXPID (``a001`` in the example above) is EC-Earth4's standard experiment identifier:
+
+* Exactly **4 alphanumeric characters**: ``a001``, ``test``, ``gcm4``, ``ctrl``
+* Used as a prefix for output files, job names, and restart files
+* EC-Earth4 enforces this format throughout its scripts
 
 Common Recipes
 --------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 15 40 20 25
+   :widths: 15 35 30 20
 
    * - Recipe
      - Description
@@ -90,7 +130,7 @@ Common Recipes
      - Typical Nodes (MN5)
    * - **gcm-sr**
      - Coupled atmosphere-ocean GCM
-     - OIFS, NEMO, XIOS, OASIS
+     - OIFS, NEMO, XIOS, OASIS, RNFM
      - 10 nodes (1120 cores)
    * - **omip-sr**
      - Ocean-only with ERA5 forcing
@@ -98,12 +138,14 @@ Common Recipes
      - 2 nodes (224 cores)
    * - **amip-sr**
      - Atmosphere-only, prescribed SST
-     - OIFS, XIOS, AMIPFR
+     - OIFS, XIOS, AMIPFR, OASIS
      - 8 nodes (896 cores)
    * - **ccycle-sr**
-     - Carbon cycle coupled
+     - Carbon cycle coupled (with LPJG)
      - OIFS, NEMO, LPJG, XIOS, OASIS
      - 10+ nodes
+
+All recipes use standard resolution (SR): OIFS TL255L91, NEMO eORCA1L75.
 
 Common Examples
 ---------------
@@ -118,23 +160,23 @@ Common Examples
    # Ocean-only (2 nodes)
    ece4-exp generate omip-sr 2 o001
 
-   # Atmosphere-only (8 nodes, 72h walltime)
+   # Atmosphere-only (8 nodes, 72h walltime override)
    ece4-exp generate amip-sr 8 atm1 --walltime 72
 
 **Custom settings**:
 
 .. code-block:: bash
 
-   # Override platform
+   # Override platform (e.g., when running at ECMWF)
    ece4-exp generate gcm-sr 10 test --platform ecmwf-hpc2020
 
    # Custom output filename
    ece4-exp generate gcm-sr 10 a002 -o my-experiment.yml
 
-   # Preview without writing
+   # Preview without writing (dry-run)
    ece4-exp generate gcm-sr 10 a003 --dry-run
 
-**Backward compatibility** (old style still works):
+**Backward compatibility** (old ``--sim-procs`` style still works):
 
 .. code-block:: bash
 
@@ -152,13 +194,19 @@ User defaults are stored in ``~/.config/ece4-exp/defaults.yml``:
    qos: gp_bsces
    repo_branch: v4.1.8
 
-   # Optional: Auto-fill recipe to skip typing
+   # Optional: Pre-fill recipe so you can omit it on the command line
    # recipe: gcm-sr
 
-   # Note: Walltime set automatically per experiment type:
-   #   CPLD-SR: 1h, OMIP-SR: 30min, AMIP-SR: 30min, CCCL-SR: 1.5h
+Walltime has sensible per-experiment defaults (set in the platform files):
 
-Resolution order: CLI flags > User defaults > Platform defaults
+* CPLD-SR (coupled GCM): 1 hour
+* OMIP-SR (ocean-only): 30 minutes
+* AMIP-SR (atmosphere-only): 30 minutes
+* CCCL-SR (carbon cycle): 1.5 hours
+
+Override with ``--walltime HOURS`` when needed.
+
+**Resolution order**: CLI flags > User defaults (``defaults.yml``) > Platform defaults
 
 Next Steps
 ----------
@@ -180,9 +228,5 @@ Need Help?
 * **Issues**: https://github.com/vlap/ece4-exp/issues
 * **PyPI**: https://pypi.org/project/ece4-exp/
 
-License
--------
-
-MIT License. See LICENSE file for details.
-
 Developed at Barcelona Supercomputing Center (BSC) for the EC-Earth community.
+MIT License — see LICENSE for details.

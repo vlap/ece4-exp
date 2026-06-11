@@ -89,9 +89,7 @@ def cmd_info(args):
     expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
     jobs_file = Path(conf_path) / f"jobs_{expid}.yml"
 
-    # Import and run generate with --info flag
-    import importlib
-    gec = importlib.import_module("ece4_exp.generate-experiment-config")
+    from . import generate_experiment_config as gec
 
     sys.argv = [
         "ece4-exp",
@@ -118,6 +116,15 @@ def cmd_generate(args):
     """Generate experiment configuration."""
     import re
     from .yaml_util import set_quiet_mode, load_yaml_config
+
+    # Apply quiet mode first so all subsequent log_* calls respect it
+    if args.quiet:
+        set_quiet_mode(True)
+        os.environ["COLOR_NC"] = ""
+        os.environ["COLOR_GREEN"] = ""
+        os.environ["COLOR_CYAN"] = ""
+        os.environ["COLOR_YELLOW"] = ""
+        os.environ["COLOR_RED"] = ""
 
     # Merge positional and flag arguments (backward compat)
     recipe = args.recipe or getattr(args, 'recipe_flag', None)
@@ -212,17 +219,8 @@ def cmd_generate(args):
         print(f"  Run 'ece4-exp list' to see available recipes")
         sys.exit(1)
 
-    if args.quiet:
-        set_quiet_mode(True)
-        os.environ["COLOR_NC"] = ""
-        os.environ["COLOR_GREEN"] = ""
-        os.environ["COLOR_CYAN"] = ""
-        os.environ["COLOR_YELLOW"] = ""
-        os.environ["COLOR_RED"] = ""
-
     # Build sys.argv for the generate module
-    import importlib
-    gec = importlib.import_module("ece4_exp.generate-experiment-config")
+    from . import generate_experiment_config as gec
     conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
 
     sys.argv = ["ece4-exp"]
@@ -290,8 +288,7 @@ def cmd_inspect(args):
 
 def cmd_validate(args):
     """Validate experiment configuration."""
-    import importlib
-    vec = importlib.import_module("ece4_exp.validate-experiment-config")
+    from . import validate_experiment_config as vec
 
     config_file = args.config_file
     if not config_file:
@@ -310,43 +307,57 @@ def cmd_validate(args):
 def cmd_save(args):
     """Save changes as a recipe."""
     import re
-    import importlib
-    srd = importlib.import_module("ece4_exp.save_recipe_from_diff")
+    from .save_recipe_from_diff import create_recipe_from_diff
 
-    # Get EXPID
-    expid = args.expid if args.expid else os.environ.get("EXPID", "unknown")
+    expid = args.expid if args.expid else os.environ.get("EXPID", "")
+    if not expid:
+        log_error("No experiment ID. Provide --expid XXXX")
+        sys.exit(1)
+    if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+        log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters")
+        log_info("Examples: a001, test, exp1, gcm4")
+        sys.exit(1)
 
-    # Validate expid format if provided (EC-Earth4 standard: exactly 4 alphanumeric characters)
-    if expid and expid != "unknown":
-        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
-            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
-            log_info("Examples: a001, test, exp1, gcm4")
-            sys.exit(1)
+    # Locate the experiment config: explicit --config, then CWD default
+    if hasattr(args, 'config') and args.config:
+        modified_file = Path(args.config)
+    else:
+        modified_file = Path(f"{expid}_experiment.yml")
+
+    pristine_file = paths.USER_CONFIG_DIR / f"{expid}_experiment_pristine.yml"
+
+    # Output recipe path
+    if args.output:
+        recipe_path = args.output
+    else:
+        paths.USER_RECIPES_DIR.mkdir(parents=True, exist_ok=True)
+        recipe_path = str(paths.USER_RECIPES_DIR / f"{expid}.yml")
+
+    log_info(f"Saving recipe: {COLOR_CYAN}{recipe_path}{COLOR_NC}  (from expid: {expid})")
+
+    # Autosubmit expdef fallback
     conf_path = os.environ.get("CONF_PATH", f"/esarchive/autosubmit/{expid}/conf")
     expdef_file = Path(conf_path) / f"expdef_{expid}.yml"
 
-    # Output file - save to user recipes by default
-    if args.output:
-        # User specified output - respect it
-        output_file = args.output
-    else:
-        # Default: save to user recipes directory
-        paths.USER_RECIPES_DIR.mkdir(parents=True, exist_ok=True)
-        output_file = str(paths.USER_RECIPES_DIR / f"{expid}.yml")
+    ok = create_recipe_from_diff(
+        modified_file=modified_file,
+        pristine_file=pristine_file,
+        recipe_path=recipe_path,
+        expdef_path=str(expdef_file) if expdef_file.exists() else None,
+        user_recipe_name=args.recipe,
+    )
+    if not ok:
+        sys.exit(1)
 
-    log_info(f"Saving recipe: {COLOR_CYAN}{output_file}{COLOR_NC} (Expid: {expid})")
 
-    sys.argv = ["ece4-exp", "--expid", expid]
-
-    if expdef_file.exists():
-        sys.argv.extend(["--expdef", str(expdef_file)])
-
-    if args.recipe:
-        sys.argv.extend(["--recipe", args.recipe])
-
-    sys.argv.extend(["--output", output_file])
-
-    srd.main()
+def _recipe_completer(prefix, parsed_args, **kwargs):
+    """Return recipe names for TAB completion."""
+    recipes = []
+    if paths.USER_RECIPES_DIR.exists():
+        recipes.extend(p.stem for p in sorted(paths.USER_RECIPES_DIR.glob("*.yml")))
+    if paths.RECIPES_DIR.exists():
+        recipes.extend(p.stem for p in sorted(paths.RECIPES_DIR.glob("*.yml")))
+    return [r for r in recipes if r.startswith(prefix)]
 
 
 def main():
@@ -420,7 +431,9 @@ First time? Run 'ece4-exp setup' to configure platform and account.
         """)
 
     # Positional arguments (NEW - nodes-first approach)
-    parser_gen.add_argument("recipe", nargs="?", help="Recipe name (e.g., gcm-sr, gcm-sr.yml)")
+    recipe_arg = parser_gen.add_argument("recipe", nargs="?", help="Recipe name (e.g., gcm-sr, gcm-sr.yml)")
+    if ARGCOMPLETE_AVAILABLE:
+        recipe_arg.completer = _recipe_completer
     parser_gen.add_argument("nodes", nargs="?", type=int, help="Number of nodes (e.g., 10 for MareNostrum5)")
     parser_gen.add_argument("expid", nargs="?", help="Experiment ID (4 characters)")
 
@@ -449,7 +462,9 @@ First time? Run 'ece4-exp setup' to configure platform and account.
 
     # --- inspect ---
     parser_inspect = subparsers.add_parser("inspect", help="View recipe contents")
-    parser_inspect.add_argument("recipe", help="Recipe name (e.g., gcm-sr.yml)")
+    inspect_recipe_arg = parser_inspect.add_argument("recipe", help="Recipe name (e.g., gcm-sr.yml)")
+    if ARGCOMPLETE_AVAILABLE:
+        inspect_recipe_arg.completer = _recipe_completer
     parser_inspect.set_defaults(func=cmd_inspect)
 
     # --- validate (hidden, auto-runs during generate) ---
@@ -459,9 +474,10 @@ First time? Run 'ece4-exp setup' to configure platform and account.
 
     # --- save ---
     parser_save = subparsers.add_parser("save", help="Save changes as a recipe")
-    parser_save.add_argument("--expid", help="Experiment ID (4 alphanumeric characters)")
-    parser_save.add_argument("--recipe", help="Current user recipe name")
-    parser_save.add_argument("-o", "--output", help="Recipe file name")
+    parser_save.add_argument("--expid", required=True, help="Experiment ID (4 alphanumeric characters)")
+    parser_save.add_argument("--config", help="Path to edited experiment YAML (default: {expid}_experiment.yml in CWD)")
+    parser_save.add_argument("--recipe", help="Base recipe name to merge into the overlay")
+    parser_save.add_argument("-o", "--output", help="Output recipe path (default: ~/.config/ece4-exp/recipes/{expid}.yml)")
     parser_save.set_defaults(func=cmd_save)
 
     # Enable argcomplete before parsing args

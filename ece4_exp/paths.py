@@ -31,10 +31,23 @@ USER_CACHE_DIR = USER_CONFIG_DIR / "cache"
 ECE4_CACHE_REPO = USER_CACHE_DIR / "ecearth4"
 
 # ECE4 repository paths (managed via sparse checkout in user cache)
-# Prefer user cache, fallback to package dir for backward compatibility
-_ECE4_CACHE_BASE = ECE4_CACHE_REPO if ECE4_CACHE_REPO.exists() else EXTERNAL_DIR / "ece4_yml_repo"
-BASE_CONFIG_EXAMPLE = str(_ECE4_CACHE_BASE / "scripts/runtime/experiment-config-example.yml")
-ECE4_PLATFORMS_DIR = str(_ECE4_CACHE_BASE / "scripts/platforms")
+# These are functions so they resolve at call time, not at import time.
+# (The cache dir is created by clone_ece4_yml_repo(), which runs after import.)
+def _ece4_cache_base():
+    if ECE4_CACHE_REPO.exists():
+        return ECE4_CACHE_REPO
+    return EXTERNAL_DIR / "ece4_yml_repo"
+
+def get_base_config_example():
+    return str(_ece4_cache_base() / "scripts/runtime/experiment-config-example.yml")
+
+def get_ece4_platforms_dir():
+    return str(_ece4_cache_base() / "scripts/platforms")
+
+# Keep backward-compat constants — resolved at import time (may be stale on fresh installs).
+# Prefer the functions above in new code.
+BASE_CONFIG_EXAMPLE = get_base_config_example()
+ECE4_PLATFORMS_DIR = get_ece4_platforms_dir()
 
 def get_recipe_path(recipe_name):
     """Get path to recipe, checking user recipes first, then built-in.
