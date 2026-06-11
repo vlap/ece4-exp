@@ -326,7 +326,7 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, cpus_per_node,
         log_yaml(merged)
         return
 
-    save_yaml_config(output, merged)
+    save_yaml_config(output, merged, mode="ece4")
 
 def load_user_defaults():
     """Load user defaults from ~/.config/ece4-exp/defaults.yml if it exists."""

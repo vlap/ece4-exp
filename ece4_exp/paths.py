@@ -36,13 +36,24 @@ def get_ecearth4_platform_path(platform_name):
 
 
 def get_recipe_path(recipe_name):
-    """Return path to recipe: user recipes first, then built-in package recipes."""
+    """Return path to recipe.
+
+    Search order:
+    1. Absolute path
+    2. Relative path from CWD (e.g. a001.yml, ./myrecipe.yml)
+    3. User recipes (~/.config/ece4-exp/recipes/)
+    4. Built-in package recipes
+    """
     if not recipe_name:
         return None
     if not recipe_name.endswith((".yml", ".yaml")):
         recipe_name += ".yml"
     if os.path.isabs(recipe_name):
         return recipe_name
+    # Check CWD — allows using generated experiment files as recipes
+    cwd_path = Path(recipe_name)
+    if cwd_path.exists():
+        return str(cwd_path.resolve())
     user = USER_RECIPES_DIR / recipe_name
     if user.exists():
         return str(user)

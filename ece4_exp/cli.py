@@ -292,7 +292,9 @@ def cmd_save(args):
     else:
         modified_file = Path(f"{expid}_experiment.yml")
 
-    pristine_file = paths.USER_CONFIG_DIR / f"{expid}_experiment_pristine.yml"
+    # Pristine name matches whatever the output file was called at generate time
+    pristine_name = modified_file.name.replace(".yml", "_pristine.yml")
+    pristine_file = paths.USER_CONFIG_DIR / pristine_name
 
     # Output recipe path
     if args.output:
