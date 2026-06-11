@@ -1,6 +1,7 @@
-# HPC2020 Cores: wiki page is not available
+# ECMWF HPC2020
+# cpus_per_node and default qos are read from the ecearth4 platform file:
+#   scripts/platforms/ecmwf-hpc2020-*.yml
 - base.context:
-    ppn: 128  # 128 cores per node
     experiment:
       ini_dir: "/hpcperm/c3et/models/ecearth/%EXPERIMENT.CONFIGURATION.INI_VERSION%/inidata"
     slurm-wrapper-taskset:

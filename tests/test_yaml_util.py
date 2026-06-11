@@ -79,27 +79,34 @@ class TestDeepMerge:
 # ---------------------------------------------------------------------------
 
 class TestNodeConversion:
-    def test_mn5_ppn(self):
+    def test_mn5_cores(self):
+        assert 10 * 112 == 1120
+
+    def test_ecmwf_cores(self):
+        assert 10 * 128 == 1280
+
+    def test_cpus_per_node_from_ecearth4_platform_file(self):
+        """cpus_per_node is now read from ecearth4 platform files, not ece4-exp platform files."""
         from ece4_exp import paths
-        launchers = {"ppn": 112}
-        ppn = launchers.get("ppn")
-        assert ppn == 112
-        assert 10 * ppn == 1120
+        from ece4_exp.yaml_util import load_platform_yaml
+        # ecearth4 platform files are seeded by conftest
+        mn5_path = paths.get_ecearth4_platform_path("bsc-marenostrum5")
+        assert mn5_path is not None, "ecearth4 MN5 platform file not found (check conftest)"
+        data = load_platform_yaml(mn5_path)
+        assert data.get("platform", {}).get("cpus_per_node") == 112
 
-    def test_ecmwf_ppn(self):
-        launchers = {"ppn": 128}
-        ppn = launchers.get("ppn")
-        assert ppn == 128
-        assert 10 * ppn == 1280
+        ecmwf_path = paths.get_ecearth4_platform_path("ecmwf-hpc2020")
+        assert ecmwf_path is not None
+        data = load_platform_yaml(ecmwf_path)
+        assert data.get("platform", {}).get("cpus_per_node") == 128
 
-    def test_ppn_read_from_platform_file(self):
+    def test_qos_from_ecearth4_platform_file(self):
         from ece4_exp import paths
-        from ece4_exp.yaml_util import load_yaml_config
-        mn5_launchers = load_yaml_config(str(paths.PLATFORMS_DIR / "bsc-marenostrum5.yml"))
-        assert mn5_launchers.get("ppn") == 112
-
-        ecmwf_launchers = load_yaml_config(str(paths.PLATFORMS_DIR / "ecmwf-hpc2020.yml"))
-        assert ecmwf_launchers.get("ppn") == 128
+        from ece4_exp.yaml_util import load_platform_yaml
+        mn5_path = paths.get_ecearth4_platform_path("bsc-marenostrum5")
+        data = load_platform_yaml(mn5_path)
+        qos = data.get("job", {}).get("slurm", {}).get("sbatch", {}).get("opts", {}).get("qos")
+        assert qos == "gp_bsces"
 
 
 # ---------------------------------------------------------------------------

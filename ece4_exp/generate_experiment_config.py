@@ -246,40 +246,36 @@ def select_launcher_fragment(launcher, launcher_kind, launchers_dict):
 
     return merged
 
-def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=None,
-                   expid=None, account=None, walltime=None, description=None, qos=None,
-                   output="experiment.yml", dry_run=False, ece4_version=None):
+def generate_config(platform, launcher, launcher_kind, sim_procs, cpus_per_node,
+                   user_recipe=None, expid=None, account=None, walltime=None,
+                   description=None, qos=None, output="experiment.yml",
+                   dry_run=False, ece4_version=None):
     """Generate an experiment configuration by merging multiple configuration fragments.
 
-    The platform file is loaded separately by the workflow, so we don't merge it here.
-
     Merge order:
-    1. base (from git repo: experiment-config-example.yml)
-    2. launcher_fragment (from local: platforms/<platform>.yml - job launch configuration)
+    1. base (from EC-Earth4 repo: experiment-config-example.yml)
+    2. launcher_fragment (from ece4-exp: platforms/<platform>.yml — node layouts, OMP settings)
     3. recipe (science configuration)
-    4. cli_overrides (explicit user parameters)
-
-    Note: Platform config is only used to extract cpus_per_node as a fallback if platform file doesn't have 'ppn'.
+    4. cli_overrides (account, expid, walltime, qos)
     """
     # Load base configuration from git repo (resolve path after clone)
     base = load_yaml_config(paths.get_base_config_example())
 
-    # Load platform launchers (local ece4-exp specific)
+    # Load platform launchers (ece4-exp bundled — node groups, OMP threads, walltimes)
     launchers_dict = load_yaml_config(paths.get_platform_launchers_path(platform))
 
     # Load user recipe if specified
     recipe = load_yaml_config(paths.get_recipe_path(user_recipe)) if user_recipe else None
 
-    # Auto-detect launcher kind if needed
+    # Auto-detect launcher kind from recipe components
     if launcher_kind == "auto":
         if not recipe:
-            log_error("launcher_kind is 'auto' but no user_recipe provided. Cannot auto-detect configuration.")
+            log_error("launcher_kind is 'auto' but no recipe provided — cannot auto-detect.")
             sys.exit(1)
 
         components = recipe.get("model_config", {}).get("components", [])
-        oifs_grid = recipe.get("model_config", {}).get("oifs", {}).get("grid", "")
-        nemo_grid = recipe.get("model_config", {}).get("nemo", {}).get("grid", "")
-
+        oifs_grid  = recipe.get("model_config", {}).get("oifs", {}).get("grid", "")
+        nemo_grid  = recipe.get("model_config", {}).get("nemo", {}).get("grid", "")
         components_set = set(components)
 
         if components_set == {"oifs", "xios", "nemo", "rnfm", "oasis"}:
@@ -299,15 +295,8 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
 
         launcher_kind = f"{exp_type}-{resolution}"
 
-    # Calculate nodes from sim_procs using ppn from the platform file
-    ppn = launchers_dict.get("ppn")
-    if not ppn:
-        log_error(f"Processors per node (ppn/cpus_per_node) not found for platform: {platform}")
-        log_info(f"Expected 'ppn' in platforms/{platform}.yml")
-        sys.exit(1)
-
     sim_procs = int(sim_procs)
-    nodes = sim_procs // ppn
+    nodes = sim_procs // cpus_per_node
 
     # Select and configure launcher fragment
     launcher_fragment = select_launcher_fragment(launcher, launcher_kind, launchers_dict)
@@ -350,7 +339,7 @@ def load_user_defaults():
 
 
 def run_generate(
-    platform=None, launcher=None, kind=None, sim_procs=None,
+    platform=None, launcher=None, kind=None, sim_procs=None, nodes=None,
     recipe=None, repo_owner=None, repo_branch=None,
     expid=None, account=None, walltime=None, description=None,
     output=None, dry_run=False, quiet=False, info=False,
@@ -381,14 +370,12 @@ def run_generate(
     launcher_kind = kind or user_defaults.get("kind") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_KIND") or "auto"
     launcher_type = launcher or user_defaults.get("launcher") or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("LAUNCHER_TYPE")
     user_recipe   = recipe    or user_defaults.get("recipe")    or expdef_conf.get("EXPERIMENT", {}).get("CONFIGURATION", {}).get("USER_RECIPE")
-    sim_procs     = sim_procs or user_defaults.get("sim_procs") or jobs_conf.get("JOBS", {}).get("SIM", {}).get("PROCESSORS")
-    expid         = expid     or user_defaults.get("expid")
-    account       = account   or user_defaults.get("account")
-    qos           = user_defaults.get("qos")
-    # walltime comes from CLI only — it's experiment+node-count dependent,
-    # so a single default value in defaults.yml would be wrong
-    # (platform files encode sensible per-experiment-type defaults)
-    description   = description or user_defaults.get("description")
+    sim_procs   = sim_procs or user_defaults.get("sim_procs") or jobs_conf.get("JOBS", {}).get("SIM", {}).get("PROCESSORS")
+    nodes       = nodes or user_defaults.get("nodes")
+    expid       = expid     or user_defaults.get("expid")
+    account     = account   or user_defaults.get("account")
+    # walltime and qos come from ecearth4 platform file after clone (see below)
+    description = description or user_defaults.get("description")
 
     if expid and not re.match(r'^[a-zA-Z0-9]{4}$', expid):
         log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters (EC-Earth4 standard)")
@@ -400,11 +387,11 @@ def run_generate(
 
     # Final validation (launcher_kind always has a value — defaults to "auto")
     missing = []
-    if not hpcarch:     missing.append("platform")
+    if not hpcarch:       missing.append("platform")
     if not launcher_type: missing.append("launcher")
-    if not sim_procs:   missing.append("sim-procs")
-    if not repo_owner:  missing.append("repo-owner")
-    if not repo_branch: missing.append("repo-branch")
+    if not sim_procs and not nodes: missing.append("NODES")
+    if not repo_owner:    missing.append("repo-owner")
+    if not repo_branch:   missing.append("repo-branch")
 
     if missing:
         log_error(f"Missing required parameters: {', '.join(missing)}")
@@ -425,9 +412,10 @@ def run_generate(
     print(f"------------------------------------------------------------")
     print(f" Experiment ID       : {cyan}{expid or '(not set)'}{nc}")
     print(f" Account             : {cyan}{account or '(not set)'}{nc}")
-    print(f" Walltime (hours)    : {cyan}{walltime or '(not set)'}{nc}")
+    print(f" Walltime (hours)    : {cyan}{walltime or '(platform default)'}{nc}")
     print(f"------------------------------------------------------------")
-    print(f" Processors (SIM)    : {cyan}{sim_procs}{nc}")
+    print(f" Nodes               : {cyan}{nodes or '(from --sim-procs)'}{nc}")
+    print(f" Processors (SIM)    : {cyan}{sim_procs or '(calculated after sync)'}{nc}")
     print(f" Launcher kind       : {cyan}{launcher_kind}{nc}")
     print(f" Launcher type       : {cyan}{launcher_type}{nc}")
     print(f" Recipe              : {cyan}{user_recipe or '(none)'}{nc}")
@@ -442,7 +430,8 @@ def run_generate(
         try:
             log_info(f"ECE4 repository synchronization: owner='{repo_owner}', ref='{repo_branch}'")
             result = clone_ece4_yml_repo(repo_owner, repo_branch,
-                                         "scripts/runtime/experiment-config-example.yml")
+                                         "scripts/runtime/experiment-config-example.yml",
+                                         "scripts/platforms")
             if result.get("switched_remote"):
                 status = "(switched repo)"
             elif result["is_cached"]:
@@ -454,6 +443,33 @@ def run_generate(
             log_error(f"Failed to sync ECE4 repo:\n{e}")
             sys.exit(1)
 
+    # Read cpus_per_node and default qos from the ecearth4 platform file.
+    # This is the authoritative source — ece4-exp platform files no longer carry ppn or qos.
+    cpus_per_node = None
+    qos = None
+    ece4_platform_path = paths.get_ecearth4_platform_path(hpcarch)
+    if ece4_platform_path:
+        try:
+            ece4_plat = load_platform_yaml(ece4_platform_path)
+            cpus_per_node = ece4_plat.get("platform", {}).get("cpus_per_node")
+            qos = ece4_plat.get("job", {}).get("slurm", {}).get("sbatch", {}).get("opts", {}).get("qos")
+            log_info(f"Platform config: {Path(ece4_platform_path).name} "
+                     f"({cpus_per_node} cores/node, qos: {qos})")
+        except Exception as e:
+            log_warn(f"Could not read ecearth4 platform file: {e}")
+
+    if cpus_per_node is None:
+        cpus_per_node = 112
+        log_warn(f"cpus_per_node not found for platform '{hpcarch}', assuming {cpus_per_node}")
+
+    # Convert nodes → sim_procs now that we have cpus_per_node
+    if nodes and not sim_procs:
+        sim_procs = int(nodes) * cpus_per_node
+        log_info(f"Converting {nodes} nodes → {sim_procs} processors ({cpus_per_node} cores/node)")
+
+    # qos from user defaults takes precedence over platform default
+    qos = user_defaults.get("qos") or qos
+
     output_file = output or (f"{expid}_experiment.yml" if expid else "experiment.yml")
 
     generate_config(
@@ -461,6 +477,7 @@ def run_generate(
         launcher=launcher_type,
         launcher_kind=launcher_kind,
         sim_procs=sim_procs,
+        cpus_per_node=cpus_per_node,
         user_recipe=user_recipe,
         expid=expid,
         account=account,

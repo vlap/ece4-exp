@@ -35,9 +35,10 @@ jobs:
       run: |
         python -m pytest tests/ -v --tb=short
 
-    - name: Write test defaults and seed base config cache
+    - name: Write test defaults and seed EC-Earth4 cache
       run: |
         mkdir -p ~/.config/ece4-exp/cache/ecearth4/scripts/runtime
+        mkdir -p ~/.config/ece4-exp/cache/ecearth4/scripts/platforms
         cat > ~/.config/ece4-exp/defaults.yml <<'EOF'
         platform: bsc-marenostrum5
         launcher: slurm-wrapper-taskset
@@ -45,9 +46,7 @@ jobs:
         repo_owner: ec-earth
         repo_branch: v4.1.8
         account: testaccount
-        qos: gp_bsces
         EOF
-        # Seed a minimal base config so --dry-run works without git.smhi.se access
         cat > ~/.config/ece4-exp/cache/ecearth4/scripts/runtime/experiment-config-example.yml <<'BASECFG'
         ece4:
           experiment:
@@ -70,6 +69,26 @@ jobs:
                   output: XXXX.log
                   job-name: ECE4_XXXX
         BASECFG
+        cat > ~/.config/ece4-exp/cache/ecearth4/scripts/platforms/bsc-marenostrum5-intel+intelmpi.yml <<'PLATCFG'
+        - base.context:
+            platform:
+              cpus_per_node: 112
+            job:
+              slurm:
+                sbatch:
+                  opts:
+                    qos: gp_bsces
+        PLATCFG
+        cat > ~/.config/ece4-exp/cache/ecearth4/scripts/platforms/ecmwf-hpc2020-intel+openmpi.yml <<'PLATCFG'
+        - base.context:
+            platform:
+              cpus_per_node: 128
+            job:
+              slurm:
+                sbatch:
+                  opts:
+                    qos: np
+        PLATCFG
 
     - name: Test CLI installation
       run: |

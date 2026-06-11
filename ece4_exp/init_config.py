@@ -65,12 +65,10 @@ def init_user_config():
 
     if platform_choice == "1":
         platform = "bsc-marenostrum5"
-        qos_default = "gp_bsces"
         account_default = "bsc32"
         user_example = "bsc032XXX"
     else:
         platform = "ecmwf-hpc2020"
-        qos_default = "normal"
         account_default = "spesiccf"
         user_example = "c3YY"
 
@@ -83,15 +81,8 @@ def init_user_config():
     account = input(f"Account [{account_default}]: ").strip() or account_default
     print()
 
-    # Question 3: QoS (optional, show default)
-    print(f"{COLOR_CYAN}3. QoS (Quality of Service)?{COLOR_NC}")
-    print(f"   Default for {platform}: {qos_default}")
-    print()
-    qos = input(f"QoS [{qos_default}]: ").strip() or qos_default
-    print()
-
-    # Question 4: Username (optional, for documentation)
-    print(f"{COLOR_CYAN}4. Your username (optional, for reference)?{COLOR_NC}")
+    # Question 3: Username (optional, for documentation)
+    print(f"{COLOR_CYAN}3. Your username (optional, for reference)?{COLOR_NC}")
     print(f"   (e.g., {user_example})")
     print()
     username = input(f"Username [skip]: ").strip()
@@ -117,8 +108,9 @@ repo_branch: v4.1.8              # Latest stable version
 # Your HPC Account
 # ═══════════════════════════════════════════════════════════
 account: {account}
-qos: {qos}
 {user_comment}
+# qos is read automatically from the EC-Earth4 platform file — no need to set it here
+# Override only if you need a non-default queue: qos: your_queue_name
 
 # ═══════════════════════════════════════════════════════════
 # Optional: Deploy to HPC (for ece4-exp deploy EXPID)
@@ -190,7 +182,7 @@ qos: {qos}
         print("Your configuration:")
         print(f"  Platform: {platform}")
         print(f"  Account:  {account}")
-        print(f"  QoS:      {qos}")
+        print(f"  QoS:      (from EC-Earth4 platform file)")
         if username:
             print(f"  User:     {username}")
         print()

@@ -174,79 +174,37 @@ def cmd_generate(args):
         os.environ["COLOR_RED"] = ""
 
     # Merge positional and flag arguments (backward compat)
-    recipe = args.recipe or getattr(args, 'recipe_flag', None)
-    nodes = getattr(args, 'nodes', None)
+    recipe    = args.recipe or getattr(args, 'recipe_flag', None)
+    nodes     = getattr(args, 'nodes', None) or getattr(args, 'nodes_flag', None)
     sim_procs = getattr(args, 'sim_procs_flag', None)
-    nodes_flag = getattr(args, 'nodes_flag', None)
-    expid = args.expid or getattr(args, 'expid_flag', None)
+    expid     = args.expid or getattr(args, 'expid_flag', None)
 
-    def _nodes_to_procs(n):
-        """Convert node count to processor count by reading ppn from the platform file."""
-        platform = args.platform
-        if not platform:
-            try:
-                defaults = load_yaml_config(paths.USER_DEFAULTS_FILE)
-                platform = defaults.get('platform')
-            except Exception:
-                pass
-
-        ppn = None
-        if platform:
-            platform_path = paths.get_platform_launchers_path(platform)
-            if platform_path:
-                try:
-                    launchers = load_yaml_config(platform_path)
-                    ppn = launchers.get('ppn')
-                except Exception:
-                    pass
-
-        if not ppn:
-            ppn = 112  # MareNostrum5 fallback
-            if not platform:
-                log_warn("No platform configured. Run 'ece4-exp setup' first.")
-            log_info(f"Assuming {ppn} cores/node (MareNostrum5 default)")
-
-        log_info(f"Converting {n} nodes → {n * ppn} processors ({ppn} cores/node)")
-        return n * ppn
-
-    # Determine if user provided nodes or sim_procs
-    if nodes is not None:
-        sim_procs = _nodes_to_procs(nodes)
-    elif nodes_flag is not None:
-        sim_procs = _nodes_to_procs(nodes_flag)
-    elif sim_procs is None:
-        sim_procs = None
-
-    # Normalize recipe name (allow "gcm-sr" or "gcm-sr.yml")
+    # Normalize recipe name
     if recipe and not recipe.endswith(('.yml', '.yaml')):
         recipe = f"{recipe}.yml"
 
-    # Validate expid format if provided (EC-Earth4 standard: exactly 4 alphanumeric characters)
-    if expid:
-        if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
-            log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters")
-            log_info("Examples: a001, test, exp1, gcm4")
-            sys.exit(1)
+    # Validate expid
+    if expid and not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+        log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters")
+        log_info("Examples: a001, test, exp1, gcm4")
+        sys.exit(1)
 
-    # Better error messages with suggestions
-    if not recipe or not sim_procs or not expid:
+    # Early error if clearly missing (nodes/sim_procs resolved later in run_generate)
+    if not recipe or (not nodes and not sim_procs) or not expid:
         missing = []
         if not recipe: missing.append("RECIPE")
-        if not sim_procs: missing.append("NODES")
+        if not nodes and not sim_procs: missing.append("NODES")
         if not expid: missing.append("EXPID")
-
         log_error(f"Missing required arguments: {', '.join(missing)}")
         print(f"\n{COLOR_GREEN}Usage:{COLOR_NC}")
         print(f"  ece4-exp generate RECIPE NODES EXPID")
         print(f"\n{COLOR_GREEN}Examples:{COLOR_NC}")
         print(f"  ece4-exp generate gcm-sr 10 a001     # 10 nodes")
         print(f"  ece4-exp generate omip-sr 2 o001     # 2 nodes")
-        print(f"\n{COLOR_GREEN}What's NODES?{COLOR_NC}")
-        print(f"  Just the number of compute nodes (tool calculates processors)")
-        print(f"  Old style still works: --sim-procs 1120")
+        print(f"\n{COLOR_GREEN}Old style (--sim-procs) still works:{COLOR_NC}")
+        print(f"  ece4-exp generate gcm-sr --sim-procs 1120 --expid a001")
         print(f"\n{COLOR_GREEN}First time?{COLOR_NC}")
-        print(f"  Run 'ece4-exp setup' to configure platform")
-        print(f"  Run 'ece4-exp list' to see available recipes")
+        print(f"  Run 'ece4-exp setup' to configure platform and account")
         sys.exit(1)
 
     from .generate_experiment_config import run_generate
@@ -259,6 +217,7 @@ def cmd_generate(args):
         platform=args.platform,
         launcher=args.launcher,
         kind=args.kind,
+        nodes=nodes,
         sim_procs=str(sim_procs) if sim_procs else None,
         recipe=recipe,
         repo_owner=args.repo_owner,

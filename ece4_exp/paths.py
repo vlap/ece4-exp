@@ -22,6 +22,19 @@ def get_base_config_example():
     return str(ECE4_CACHE_REPO / "scripts/runtime/experiment-config-example.yml")
 
 
+def get_ecearth4_platform_path(platform_name):
+    """Find the ecearth4 platform file by prefix match (ignores compiler suffix).
+
+    e.g. 'bsc-marenostrum5' matches 'bsc-marenostrum5-intel+intelmpi.yml'.
+    Returns the first alphabetical match, or None if not found.
+    """
+    platforms_dir = ECE4_CACHE_REPO / "scripts/platforms"
+    if not platforms_dir.exists():
+        return None
+    matches = sorted(platforms_dir.glob(f"{platform_name}*.yml"))
+    return str(matches[0]) if matches else None
+
+
 def get_recipe_path(recipe_name):
     """Return path to recipe: user recipes first, then built-in package recipes."""
     if not recipe_name:

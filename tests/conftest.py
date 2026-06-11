@@ -1,19 +1,15 @@
 """
 Session-scoped fixtures that make the test suite self-contained:
 
-1. Writes a minimal ~/.config/ece4-exp/defaults.yml so CLI tests work on
-   a clean CI runner that has never run 'ece4-exp setup'.
-
-2. Seeds a minimal experiment-config-example.yml in the cache directory and
-   sets ECE4_SKIP_SYNC so tests never try to clone git.smhi.se.
+1. Writes minimal ~/.config/ece4-exp/defaults.yml for CLI tests on a clean runner.
+2. Seeds experiment-config-example.yml and ecearth4 platform files in the cache.
+3. Sets ECE4_SKIP_SYNC so tests never clone git.smhi.se.
 """
 import os
 import pytest
 from pathlib import Path
 from ece4_exp import paths
 
-# Minimal experiment-config-example.yml that mirrors the real structure
-# Used so generate_config() can load a base without network access.
 _BASE_CONFIG = """\
 ece4:
   experiment:
@@ -38,6 +34,33 @@ ece4:
           job-name: ECE4_XXXX
 """
 
+# Minimal ecearth4 platform files — provide cpus_per_node and default qos
+# so generate_config() can resolve them without a real git clone.
+_ECE4_PLATFORMS = {
+    "bsc-marenostrum5-intel+intelmpi.yml": """\
+- base.context:
+    platform:
+      name: bsc-marenostrum5-intel+intelmpi
+      cpus_per_node: 112
+    job:
+      slurm:
+        sbatch:
+          opts:
+            qos: gp_bsces
+""",
+    "ecmwf-hpc2020-intel+openmpi.yml": """\
+- base.context:
+    platform:
+      name: ecmwf-hpc2020-intel+openmpi
+      cpus_per_node: 128
+    job:
+      slurm:
+        sbatch:
+          opts:
+            qos: np
+""",
+}
+
 
 @pytest.fixture(autouse=True, scope="session")
 def ci_environment(tmp_path_factory):
@@ -57,20 +80,29 @@ def ci_environment(tmp_path_factory):
             "repo_owner: ec-earth\n"
             "repo_branch: v4.1.8\n"
             "account: testaccount\n"
-            "qos: gp_bsces\n"
         )
         created_defaults = True
 
-    # --- 2. Seed minimal base config so no git clone is needed ---
+    # --- 2. Seed base config ---
     cache_runtime = paths.ECE4_CACHE_REPO / "scripts" / "runtime"
     base_config = cache_runtime / "experiment-config-example.yml"
-    created_cache = False
+    created_base = False
     if not base_config.exists():
         cache_runtime.mkdir(parents=True, exist_ok=True)
         base_config.write_text(_BASE_CONFIG)
-        created_cache = True
+        created_base = True
 
-    # --- 3. Skip git sync for the whole test session ---
+    # --- 3. Seed ecearth4 platform files ---
+    cache_platforms = paths.ECE4_CACHE_REPO / "scripts" / "platforms"
+    created_platforms = []
+    cache_platforms.mkdir(parents=True, exist_ok=True)
+    for fname, content in _ECE4_PLATFORMS.items():
+        p = cache_platforms / fname
+        if not p.exists():
+            p.write_text(content)
+            created_platforms.append(p)
+
+    # --- 4. Skip git sync for the whole test session ---
     os.environ["ECE4_SKIP_SYNC"] = "1"
 
     yield
@@ -79,5 +111,8 @@ def ci_environment(tmp_path_factory):
     os.environ.pop("ECE4_SKIP_SYNC", None)
     if created_defaults and defaults_file.exists():
         defaults_file.unlink()
-    if created_cache and base_config.exists():
+    if created_base and base_config.exists():
         base_config.unlink()
+    for p in created_platforms:
+        if p.exists():
+            p.unlink()
