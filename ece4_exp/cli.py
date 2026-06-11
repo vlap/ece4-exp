@@ -56,6 +56,58 @@ def cmd_list(args):
     print()
 
 
+def cmd_deploy(args):
+    """rsync generated experiment config to the HPC runtime directory."""
+    import re
+    import subprocess
+
+    expid = args.expid
+    if not re.match(r'^[a-zA-Z0-9]{4}$', expid):
+        log_error(f"Invalid expid '{expid}': Must be exactly 4 alphanumeric characters")
+        sys.exit(1)
+
+    # Source file
+    config_file = args.config or f"{expid}_experiment.yml"
+    if not Path(config_file).exists():
+        log_error(f"Config file not found: {config_file}")
+        log_info(f"Generate it first: ece4-exp generate RECIPE NODES {expid}")
+        sys.exit(1)
+
+    # Destination: resolve from args > defaults.yml
+    host = args.host
+    scratch = args.scratch
+    if not host or not scratch:
+        try:
+            from .yaml_util import load_yaml
+            defaults = load_yaml(str(paths.USER_DEFAULTS_FILE))
+            host = host or defaults.get("host")
+            scratch = scratch or defaults.get("scratch")
+        except Exception:
+            pass
+
+    if not host:
+        log_error("No host configured. Provide --host or add 'host: user@hostname' to ~/.config/ece4-exp/defaults.yml")
+        sys.exit(1)
+    if not scratch:
+        log_error("No scratch path configured. Provide --scratch or add 'scratch: /path/to/scratch' to ~/.config/ece4-exp/defaults.yml")
+        sys.exit(1)
+
+    dest = f"{host}:{scratch}/ecearth4/scripts/runtime/"
+    cmd = ["rsync", "-az", "--progress", config_file, dest]
+
+    log_info(f"Deploying {COLOR_CYAN}{config_file}{COLOR_NC} → {COLOR_CYAN}{dest}{COLOR_NC}")
+
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        log_error("rsync failed.")
+        sys.exit(result.returncode)
+
+    log_info(f"Done. Run the experiment with:")
+    print(f"  ssh {host}")
+    print(f"  cd {scratch}/ecearth4/scripts/runtime")
+    print(f"  se user.yml platform.yml {Path(config_file).name} scriptlib/main.yml")
+
+
 def cmd_completion(args):
     """Generate shell completion script."""
     from .completion import generate_completion
@@ -378,12 +430,14 @@ Examples:
   ece4-exp setup                         # First-time configuration
   ece4-exp list                          # Show available recipes
   ece4-exp generate gcm-sr 10 a001       # Generate experiment config (10 nodes)
+  ece4-exp deploy a001                   # Send config to HPC runtime directory
   ece4-exp inspect gcm-sr                # View recipe details
 
 Getting Started:
   1. Run 'ece4-exp setup' to configure platform and account
   2. Use 'ece4-exp list' to see available experiment recipes
   3. Generate configs with 'ece4-exp generate RECIPE NODES EXPID'
+  4. Deploy to HPC with 'ece4-exp deploy EXPID'
 
 For detailed help: ece4-exp <command> --help
 Documentation: https://ece4-exp.readthedocs.io
@@ -471,6 +525,29 @@ First time? Run 'ece4-exp setup' to configure platform and account.
     parser_val = subparsers.add_parser("validate", help=argparse.SUPPRESS)
     parser_val.add_argument("config_file", nargs="?", help="Path to configuration file")
     parser_val.set_defaults(func=cmd_validate)
+
+    # --- deploy ---
+    parser_deploy = subparsers.add_parser("deploy",
+        help="Send experiment config to HPC runtime directory",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Deploy the generated config file to the EC-Earth4 runtime directory on the HPC.
+Requires rsync and SSH access to the target host.
+
+Examples:
+  ece4-exp deploy a001                          # Uses host/scratch from defaults.yml
+  ece4-exp deploy a001 --host user@mn1.bsc.es --scratch /gpfs/scratch/bsc32/bsc032XXX
+  ece4-exp deploy a001 --config /path/to/a001_experiment.yml
+
+Configure once in ~/.config/ece4-exp/defaults.yml:
+  host: bsc032XXX@mn1.bsc.es
+  scratch: /gpfs/scratch/bsc32/bsc032XXX
+        """)
+    parser_deploy.add_argument("expid", help="Experiment ID (4 alphanumeric characters)")
+    parser_deploy.add_argument("--config", help="Path to experiment config (default: {expid}_experiment.yml in CWD)")
+    parser_deploy.add_argument("--host", help="SSH host (e.g., user@mn1.bsc.es)")
+    parser_deploy.add_argument("--scratch", help="Scratch directory on the HPC (e.g., /gpfs/scratch/bsc32/bsc032XXX)")
+    parser_deploy.set_defaults(func=cmd_deploy)
 
     # --- save ---
     parser_save = subparsers.add_parser("save", help="Save changes as a recipe")

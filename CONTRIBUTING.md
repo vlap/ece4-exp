@@ -103,7 +103,7 @@ ece4-exp list
 - **Python**: Follow PEP 8
 - **Line length**: Max 100 characters (flexible)
 - **Imports**: Group by standard library, third-party, local
-- **Documentation**: Update README.md and docs/GUIDE.md for user-facing changes
+- **Documentation**: Update README.md and docs/source/ for user-facing changes
 - **Comments**: Explain "why", not "what"
 
 #### Adding New Features
@@ -114,7 +114,7 @@ ece4-exp list
 recipes/my-new-recipe.yml
 
 # Test it
-ece4-exp generate --recipe my-new-recipe.yml --sim-procs 1120 --expid test --dry-run
+ece4-exp generate my-new-recipe 10 test --dry-run
 ```
 
 **New Platforms:**
@@ -141,7 +141,7 @@ Before submitting PR:
 - [ ] Code works on your machine
 - [ ] No hardcoded paths or credentials
 - [ ] Error messages are clear and helpful
-- [ ] Documentation updated (README, GUIDE)
+- [ ] Documentation updated (README, docs/source/)
 - [ ] Help text added/updated for new options
 - [ ] Examples use 4-character expids
 - [ ] No new dependencies without discussion
@@ -152,7 +152,8 @@ Documentation improvements are always welcome!
 
 **Types of documentation:**
 - README.md - Quick start guide
-- docs/GUIDE.md - Complete reference
+- docs/source/index.rst - Overview and quick start
+- docs/source/reference.rst - Complete command reference
 - Code comments - Inline explanations
 - Help text - CLI --help output
 

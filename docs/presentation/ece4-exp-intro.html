@@ -856,7 +856,7 @@ ece4-exp generate gcm-sr 10 <span class="hljs-built_in">test</span>
 vim test_experiment.yml
 
 <span class="hljs-comment"># Save as new recipe</span>
-ece4-exp save --expid <span class="hljs-built_in">test</span> -o my-recipe.yml
+ece4-exp save --expid <span class="hljs-built_in">test</span> --recipe gcm-sr
 
 <span class="hljs-comment"># Reuse it</span>
 ece4-exp generate my-recipe 10 a001
@@ -1080,20 +1080,21 @@ table {
 ;color:#333;background-color:#ffffff;background-image:none;" data-marpit-pagination-total="10">
 <header>ece4-exp: EC-Earth4 Made Simple</header>
 <h1 id="get-started">Get Started</h1>
-<p><strong>Try it now:</strong></p>
+<p><strong>The full workflow:</strong></p>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">pip install ece4-exp
-ece4-exp setup
-ece4-exp generate gcm-sr 10 a001
+ece4-exp setup                          <span class="hljs-comment"># configure once</span>
+ece4-exp generate gcm-sr 10 a001        <span class="hljs-comment"># generate config</span>
+ece4-exp deploy a001                    <span class="hljs-comment"># push to HPC</span>
+</code></pre>
+<p><strong>Then on the HPC:</strong></p>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash"><span class="hljs-built_in">cd</span> <span class="hljs-variable">$scratch</span>/ecearth4/scripts/runtime
+se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 </code></pre>
 <p><strong>Documentation:</strong></p>
 <ul>
-<li><code>README.md</code> - Complete guide</li>
-<li><code>ece4-exp --help</code> - Command reference</li>
-<li><code>ece4-exp generate --help</code> - Generate options</li>
+<li><code>ece4-exp --help</code> — Command reference</li>
+<li><a href="https://ece4-exp.readthedocs.io">https://ece4-exp.readthedocs.io</a></li>
 </ul>
-<p><strong>EC-Earth4 workflow (after generating):</strong></p>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
-</code></pre>
 <p><strong>Compatible with:</strong></p>
 <ul>
 <li><img class="emoji" draggable="false" alt="✅" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" data-marp-twemoji=""/> Manual EC-Earth4 workflows (ScriptEngine / <code>se</code>)</li>

@@ -99,14 +99,20 @@ Interactive wizard asks for your HPC platform and account. Creates ``~/.config/e
 
 This generates ``a001_experiment.yml`` — 10 nodes (1120 cores on MareNostrum5), coupled GCM configuration, ready to submit.
 
-**4. Run the experiment with EC-Earth4**:
+**4. Deploy to HPC and run**:
 
 .. code-block:: bash
 
-   cd /path/to/ecearth4/scripts/runtime
+   ece4-exp deploy a001    # rsync to HPC scratch/ecearth4/scripts/runtime/
+
+   # then on the HPC:
+   cd $scratch/ecearth4/scripts/runtime
    se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 
-The generated file is one of the YAML files passed to the EC-Earth4 ``se`` (ScriptEngine) command. It holds the experiment-specific settings; the platform and user files are loaded separately.
+``deploy`` uses ``rsync`` over SSH. Configure ``host`` and ``scratch`` once in
+``~/.config/ece4-exp/defaults.yml`` (shown by ``ece4-exp setup``).
+The generated file is one of several YAMLs passed to ``se`` — it holds the
+experiment-specific settings; the platform and user files load separately.
 
 About Experiment IDs
 ~~~~~~~~~~~~~~~~~~~~

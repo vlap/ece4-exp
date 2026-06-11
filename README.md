@@ -37,19 +37,22 @@ That's it! You have `a001_experiment.yml` ready to use with EC-Earth4.
 
 ```bash
 # Setup
-ece4-exp setup                     # Configure platform and account
+ece4-exp setup                      # Configure platform, account, and HPC host
 
 # Generate (specify nodes, not processors)
 ece4-exp generate RECIPE NODES EXPID
-ece4-exp generate gcm-sr 10 a001     # 10 nodes
+ece4-exp generate gcm-sr 10 a001      # 10 nodes
 ece4-exp generate omip-sr 2 o001 --walltime 72
 
 # Discovery
-ece4-exp list                      # Show available recipes
-ece4-exp inspect gcm-sr            # View recipe details
+ece4-exp list                       # Show available recipes
+ece4-exp inspect gcm-sr             # View recipe details
+
+# Deploy to HPC
+ece4-exp deploy a001                # rsync config to HPC runtime directory
 
 # Advanced
-ece4-exp save --expid a001         # Save modifications as new recipe
+ece4-exp save --expid a001          # Save modifications as new recipe
 ```
 
 ## Customization
@@ -89,10 +92,13 @@ ece4-exp generate gcm-sr 10 a001 --platform my-hpc
 4. **Your defaults** (~/.config/ece4-exp/defaults.yml)
 5. **CLI overrides** (command-line flags)
 
-The result is a validated YAML file you pass to EC-Earth4's runtime script:
+The result is a validated YAML file you deploy to the HPC and pass to EC-Earth4's runtime:
 
 ```bash
-cd /path/to/ecearth4/scripts/runtime
+ece4-exp deploy a001   # rsync to HPC scratch/ecearth4/scripts/runtime/
+
+# then on the HPC:
+cd $scratch/ecearth4/scripts/runtime
 se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 ```
 

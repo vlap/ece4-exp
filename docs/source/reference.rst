@@ -31,6 +31,9 @@ Commands Overview
    * - **validate**
      - Check config validity
      - Debug configuration issues
+   * - **deploy**
+     - Send config to HPC runtime directory
+     - Copy generated config to HPC via rsync
    * - **completion**
      - Generate shell completion script
      - Enable TAB completion manually
@@ -344,6 +347,60 @@ validate
    ✓ Configuration is valid
 
 **Note**: Validation runs automatically during ``generate``, so this command is mainly useful after manual edits.
+
+deploy
+------
+
+**Purpose**: Send the generated experiment config to the EC-Earth4 runtime directory on the HPC.
+
+**Use case**: After generating, push the config file to the HPC with one command instead of copying the path and running rsync manually.
+
+**Syntax**:
+
+.. code-block:: bash
+
+   ece4-exp deploy EXPID [OPTIONS]
+
+**Arguments**:
+
+* ``EXPID`` — Experiment ID (4 alphanumeric characters)
+
+**Options**:
+
+* ``--config FILE`` — Path to experiment config (default: ``{expid}_experiment.yml`` in CWD)
+* ``--host USER@HOST`` — SSH host (overrides ``defaults.yml``)
+* ``--scratch PATH`` — Scratch directory on the HPC (overrides ``defaults.yml``)
+
+**Configure once** in ``~/.config/ece4-exp/defaults.yml``:
+
+.. code-block:: yaml
+
+   host: bsc032XXX@mn1.bsc.es
+   scratch: /gpfs/scratch/bsc32/bsc032XXX
+
+**Examples**:
+
+.. code-block:: bash
+
+   # Uses host and scratch from defaults.yml
+   ece4-exp deploy a001
+
+   # Override host and scratch
+   ece4-exp deploy a001 --host bsc032XXX@mn1.bsc.es --scratch /gpfs/scratch/bsc32/bsc032XXX
+
+   # Config not in CWD
+   ece4-exp deploy a001 --config /path/to/a001_experiment.yml
+
+**What it does**: runs ``rsync -az --progress {config} {host}:{scratch}/ecearth4/scripts/runtime/``
+
+**After deploying**, log in to the HPC and run:
+
+.. code-block:: bash
+
+   cd $scratch/ecearth4/scripts/runtime
+   se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
+
+**Prerequisites**: rsync installed locally, SSH key-based access to the HPC (standard for HPC users).
 
 completion
 ----------

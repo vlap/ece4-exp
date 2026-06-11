@@ -17,7 +17,7 @@ _ece4_exp_completion() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Available commands
-    commands="list info setup init-user generate inspect validate save completion"
+    commands="list setup generate inspect save deploy"
 
     # Command-specific options
     generate_opts="--recipe --sim-procs --expid --platform --launcher --kind --account --walltime --description --repo-owner --repo-branch --output --dry-run --quiet"
@@ -133,14 +133,11 @@ _ece4_exp() {
     local -a commands
     commands=(
         'list:List available recipes'
-        'info:Show current configuration info'
-        'setup:Initialize user configuration'
-        'init-user:Initialize user configuration (alias)'
+        'setup:Configure platform and account'
         'generate:Generate experiment configuration'
         'inspect:View recipe contents'
-        'validate:Validate experiment configuration'
         'save:Save changes as a recipe'
-        'completion:Generate shell completion script'
+        'deploy:Send config to HPC runtime directory'
     )
 
     local -a generate_opts

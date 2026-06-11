@@ -121,23 +121,29 @@ qos: {qos}
 {user_comment}
 
 # ═══════════════════════════════════════════════════════════
-# Optional: Auto-fill recipe/procs to skip typing them
+# Optional: Deploy to HPC (for ece4-exp deploy EXPID)
+# ═══════════════════════════════════════════════════════════
+# host: bsc032XXX@mn1.bsc.es     # SSH host (user@hostname)
+# scratch: /gpfs/scratch/bsc32/bsc032XXX  # Your scratch directory
+
+# ═══════════════════════════════════════════════════════════
+# Optional: Pre-fill recipe to skip typing it
 # ═══════════════════════════════════════════════════════════
 # recipe: gcm-sr                 # gcm-sr, omip-sr, amip-sr, ccycle-sr
-# sim_procs: 1120                # 1120 (10 nodes MN5), 224 (2 nodes), etc.
 
 # ═══════════════════════════════════════════════════════════
 # Notes
 # ═══════════════════════════════════════════════════════════
 # Walltime: Set automatically per experiment type in platform configs
 #   CPLD-SR: 1h, OMIP-SR: 30min, AMIP-SR: 30min, CCCL-SR: 1.5h
-#   Override: ece4-exp generate RECIPE PROCS EXPID --walltime HOURS
+#   Override: ece4-exp generate RECIPE NODES EXPID --walltime HOURS
 #
 # Resolution order: CLI args > this file > platform defaults
 #
 # Usage:
-#   ece4-exp generate gcm-sr 1120 a001
-#   ece4-exp generate omip-sr 224 o001 --walltime 2
+#   ece4-exp generate gcm-sr 10 a001
+#   ece4-exp generate omip-sr 2 o001 --walltime 2
+#   ece4-exp deploy a001
 """
 
     try:

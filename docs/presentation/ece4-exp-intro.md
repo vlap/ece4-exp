@@ -188,7 +188,7 @@ ece4-exp generate gcm-sr 10 test
 vim test_experiment.yml
 
 # Save as new recipe
-ece4-exp save --expid test -o my-recipe.yml
+ece4-exp save --expid test --recipe gcm-sr
 
 # Reuse it
 ece4-exp generate my-recipe 10 a001
@@ -238,23 +238,24 @@ Copy a built-in platform as template and adjust node layouts.
 
 # Get Started
 
-**Try it now:**
+**The full workflow:**
 
 ```bash
 pip install ece4-exp
-ece4-exp setup
-ece4-exp generate gcm-sr 10 a001
+ece4-exp setup                          # configure once
+ece4-exp generate gcm-sr 10 a001        # generate config
+ece4-exp deploy a001                    # push to HPC
+```
+
+**Then on the HPC:**
+```bash
+cd $scratch/ecearth4/scripts/runtime
+se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
 ```
 
 **Documentation:**
-- `README.md` - Complete guide
-- `ece4-exp --help` - Command reference
-- `ece4-exp generate --help` - Generate options
-
-**EC-Earth4 workflow (after generating):**
-```bash
-se user.yml platform.yml a001_experiment.yml scriptlib/main.yml
-```
+- `ece4-exp --help` — Command reference
+- https://ece4-exp.readthedocs.io
 
 **Compatible with:**
 - ✅ Manual EC-Earth4 workflows (ScriptEngine / `se`)
