@@ -14,6 +14,9 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
 
+    env:
+      ECE4_SKIP_SYNC: "1"
+
     steps:
     - uses: actions/checkout@v4
 
@@ -32,9 +35,9 @@ jobs:
       run: |
         python -m pytest tests/ -v --tb=short
 
-    - name: Write test defaults (CI has no ~/.config/ece4-exp/defaults.yml)
+    - name: Write test defaults and seed base config cache
       run: |
-        mkdir -p ~/.config/ece4-exp
+        mkdir -p ~/.config/ece4-exp/cache/ecearth4/scripts/runtime
         cat > ~/.config/ece4-exp/defaults.yml <<'EOF'
         platform: bsc-marenostrum5
         launcher: slurm-wrapper-taskset
@@ -44,6 +47,29 @@ jobs:
         account: testaccount
         qos: gp_bsces
         EOF
+        # Seed a minimal base config so --dry-run works without git.smhi.se access
+        cat > ~/.config/ece4-exp/cache/ecearth4/scripts/runtime/experiment-config-example.yml <<'BASECFG'
+        ece4:
+          experiment:
+            id: XXXX
+            description: A new ECE4 experiment
+            schedule:
+              all: "DTSTART:18500101 RRULE:FREQ=YEARLY;INTERVAL=1;UNTIL=18510101"
+              nlegs: 1
+            run_from_scratch: false
+          model_config:
+            components: []
+          job:
+            launch:
+              method: slurm-wrapper-taskset
+            resubmit: true
+            slurm:
+              sbatch:
+                opts:
+                  time: "00:30:00"
+                  output: XXXX.log
+                  job-name: ECE4_XXXX
+        BASECFG
 
     - name: Test CLI installation
       run: |
