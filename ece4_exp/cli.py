@@ -185,58 +185,33 @@ def cmd_generate(args):
     nodes_flag = getattr(args, 'nodes_flag', None)
     expid = args.expid or getattr(args, 'expid_flag', None)
 
-    # Determine if user provided nodes or sim_procs
-    if nodes is not None:
-        # New approach: nodes provided as positional arg
-        # Convert nodes → sim_procs based on platform
-        if not args.platform:
-            # Load platform from user defaults
+    def _nodes_to_procs(n):
+        """Convert node count to processor count using platform ppn."""
+        platform = args.platform
+        if not platform:
             try:
                 defaults = load_yaml_config(paths.USER_DEFAULTS_FILE)
                 platform = defaults.get('platform')
-            except:
-                platform = None
-        else:
-            platform = args.platform
-
-        # Get cores per node for platform
-        if platform and 'marenostrum' in platform.lower():
-            ppn = 112  # MareNostrum5
-        elif platform and 'ecmwf' in platform.lower():
-            ppn = 128  # ECMWF HPC2020
-        else:
-            # Default to MN5 if unknown
-            ppn = 112
-            if not platform:
-                log_warn("No platform configured. Run 'ece4-exp setup' first.")
-                log_info(f"Assuming {ppn} cores/node (MareNostrum5 default)")
-
-        sim_procs = nodes * ppn
-        log_info(f"Converting {nodes} nodes → {sim_procs} processors ({ppn} cores/node)")
-    elif sim_procs is not None:
-        # Old approach: sim_procs provided directly
-        pass
-    elif nodes_flag is not None:
-        # --nodes flag provided
-        # Same conversion as above
-        nodes = nodes_flag
-        if not args.platform:
-            try:
-                defaults = load_yaml_config(paths.USER_DEFAULTS_FILE)
-                platform = defaults.get('platform')
-            except:
-                platform = None
-        else:
-            platform = args.platform
-
+            except Exception:
+                pass
         if platform and 'marenostrum' in platform.lower():
             ppn = 112
         elif platform and 'ecmwf' in platform.lower():
             ppn = 128
         else:
             ppn = 112
-        sim_procs = nodes * ppn
-    else:
+            if not platform:
+                log_warn("No platform configured. Run 'ece4-exp setup' first.")
+                log_info(f"Assuming {ppn} cores/node (MareNostrum5 default)")
+        log_info(f"Converting {n} nodes → {n * ppn} processors ({ppn} cores/node)")
+        return n * ppn
+
+    # Determine if user provided nodes or sim_procs
+    if nodes is not None:
+        sim_procs = _nodes_to_procs(nodes)
+    elif nodes_flag is not None:
+        sim_procs = _nodes_to_procs(nodes_flag)
+    elif sim_procs is None:
         sim_procs = None
 
     # Normalize recipe name (allow "gcm-sr" or "gcm-sr.yml")

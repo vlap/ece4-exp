@@ -122,11 +122,8 @@ def get_ecearth4_platform_path(platform_name):
         return exact_path
 
     # Try to find by prefix (e.g. 'bsc-marenostrum5' matches 'bsc-marenostrum5-intel+openmpi.yml')
-    import glob
-    matches = glob.glob(os.path.join(ECE4_PLATFORMS_DIR, f"{platform_name}*.yml"))
+    matches = sorted(Path(ECE4_PLATFORMS_DIR).glob(f"{platform_name}*.yml"))
     if matches:
-        # Return first match (alphabetically sorted for consistency)
-        # Future: could add logic to prefer certain compilers (intel > gcc, etc.)
-        return sorted(matches)[0]
+        return str(matches[0])
 
     return None

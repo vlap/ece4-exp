@@ -264,10 +264,6 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
     # Load base configuration from git repo (resolve path after clone)
     base = load_yaml_config(paths.get_base_config_example())
 
-    # Platform files are NOT merged into experiment config (they're loaded separately by the workflow).
-    # We only need platform_config as a fallback source for cpus_per_node if platform file doesn't have ppn.
-    platform_config = {}
-
     # Load platform launchers (local ece4-exp specific)
     launchers_dict = load_yaml_config(paths.get_platform_launchers_path(platform))
 
@@ -303,13 +299,8 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
 
         launcher_kind = f"{exp_type}-{resolution}"
 
-    # Calculate nodes from sim_procs
-    # Get ppn (processors per node) from platform file
+    # Calculate nodes from sim_procs using ppn from the platform file
     ppn = launchers_dict.get("ppn")
-    if not ppn and platform_config:
-        # Fallback: check ecearth4 platform format
-        ppn = platform_config.get("platform", {}).get("cpus_per_node")
-
     if not ppn:
         log_error(f"Processors per node (ppn/cpus_per_node) not found for platform: {platform}")
         log_info(f"Expected 'ppn' in platforms/{platform}.yml")
@@ -326,12 +317,8 @@ def generate_config(platform, launcher, launcher_kind, sim_procs, user_recipe=No
     # Build CLI overrides (NEW: explicit user parameters)
     cli_overrides = build_cli_overrides(expid, account, walltime, description, qos)
 
-    # NOTE: We do NOT merge platform_config into the experiment config!
-    # The platform file is loaded separately by the workflow as:
-    #   se my-user-config.yml my-platform-config.yml my-experiment-config.yml scriptlib/main.yml
-    # We only used platform_config to extract cpus_per_node for node calculation above.
-
     # Merge layers: base < launcher < recipe < cli_overrides
+    # Note: platform file is NOT merged here — it's loaded separately by `se` at runtime
     merged = deepcopy(base)
     merged["job"]["launch"]["method"] = launcher
     merged = deep_merge(merged, deepcopy(launcher_fragment))
@@ -434,11 +421,10 @@ def main():
     if user_recipe and not user_recipe.endswith((".yml", ".yaml")):
         user_recipe += ".yml"
 
-    # Final validation
+    # Final validation (launcher_kind always has a value — defaults to "auto")
     missing = []
     if not hpcarch: missing.append("platform")
     if not launcher_type: missing.append("launcher")
-    if not launcher_kind: missing.append("kind")
     if not sim_procs: missing.append("sim-procs")
     if not repo_owner: missing.append("repo-owner")
     if not repo_branch: missing.append("repo-branch")
